@@ -180,6 +180,22 @@ def add_venue_history_features(team_frame: pd.DataFrame) -> pd.DataFrame:
     return enriched
 
 
+def add_toss_context_features(team_frame: pd.DataFrame) -> pd.DataFrame:
+    """Expose toss information that is known before the innings begin."""
+
+    enriched = team_frame.copy()
+    enriched["won_toss"] = (enriched["team_id"] == enriched["toss_winner_id"]).astype(int)
+    enriched["toss_decision_is_bat"] = (enriched["toss_decision"] == "bat").astype(int)
+    enriched["toss_decision_is_field"] = (enriched["toss_decision"] == "field").astype(int)
+    enriched["won_toss_and_batted"] = (
+        (enriched["won_toss"] == 1) & (enriched["toss_decision_is_bat"] == 1)
+    ).astype(int)
+    enriched["won_toss_and_fielded"] = (
+        (enriched["won_toss"] == 1) & (enriched["toss_decision_is_field"] == 1)
+    ).astype(int)
+    return enriched
+
+
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     """Create per-innings performance aggregates."""
 
