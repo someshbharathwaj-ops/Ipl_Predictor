@@ -29,6 +29,30 @@ def _rename_side_columns(frame: pd.DataFrame, prefix: str) -> pd.DataFrame:
     return renamed
 
 
+def add_relative_strength_features(dataset: pd.DataFrame) -> pd.DataFrame:
+    """Create team1 minus team2 differences for key metrics."""
+
+    enriched = dataset.copy()
+    comparable_metrics = [
+        "win_rate_before_match",
+        "last_5_matches_win_rate",
+        "batting_run_rate_mean_before_match",
+        "batting_powerplay_run_rate_mean_before_match",
+        "batting_death_over_run_rate_mean_before_match",
+        "batting_boundary_percentage_mean_before_match",
+        "bowling_run_rate_conceded_mean_before_match",
+        "bowling_wicket_rate_mean_before_match",
+        "bowling_dot_ball_percentage_mean_before_match",
+        "venue_win_rate_before_match",
+        "head_to_head_win_rate_before_match",
+    ]
+    for metric in comparable_metrics:
+        enriched[f"delta_{metric}"] = (
+            enriched[f"team1_{metric}"] - enriched[f"team2_{metric}"]
+        )
+    return enriched
+
+
 def build_match_dataset(team_history: pd.DataFrame) -> pd.DataFrame:
     """Assemble one-row-per-match data."""
 
@@ -53,7 +77,7 @@ def build_match_dataset(team_history: pd.DataFrame) -> pd.DataFrame:
     dataset["team1_home_country"] = (
         dataset["team1_host_country"].str.lower() == "india"
     ).astype(int)
-    return dataset
+    return add_relative_strength_features(dataset)
 
 
 def extract_model_matrix(match_dataset: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
