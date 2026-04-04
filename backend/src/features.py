@@ -129,4 +129,39 @@ def build_team_history_frame(
         (team_frame["winner_team_id"].notna()) &
         (team_frame["team_id"] != team_frame["winner_team_id"])
     ).astype(int)
+
+    batting_columns = [
+        "match_id",
+        "batting_team_id",
+        "total_runs",
+        "wickets_lost",
+        "legal_balls",
+        "run_rate",
+        "wicket_rate",
+        "dot_ball_percentage",
+        "boundary_percentage",
+        "powerplay_run_rate",
+        "middle_over_run_rate",
+        "death_over_run_rate",
+    ]
+    batting_stats = innings_stats[batting_columns].rename(
+        columns={
+            "batting_team_id": "team_id",
+            "total_runs": "batting_runs",
+            "wickets_lost": "batting_wickets_lost",
+            "legal_balls": "batting_legal_balls",
+            "run_rate": "batting_run_rate",
+            "wicket_rate": "batting_wicket_rate",
+            "dot_ball_percentage": "batting_dot_ball_percentage",
+            "boundary_percentage": "batting_boundary_percentage",
+            "powerplay_run_rate": "batting_powerplay_run_rate",
+            "middle_over_run_rate": "batting_middle_over_run_rate",
+            "death_over_run_rate": "batting_death_over_run_rate",
+        }
+    )
+    team_frame = team_frame.merge(
+        batting_stats,
+        on=["match_id", "team_id"],
+        how="left",
+    )
     return team_frame
