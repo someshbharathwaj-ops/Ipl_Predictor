@@ -5,6 +5,13 @@ from __future__ import annotations
 import pandas as pd
 
 
+def _rate_from_phase(group: pd.DataFrame) -> float:
+    legal_balls = group["is_legal_delivery"].sum()
+    if legal_balls == 0:
+        return 0.0
+    return float(group["total_runs"].sum() / (legal_balls / 6.0))
+
+
 def add_ball_outcome_flags(balls: pd.DataFrame) -> pd.DataFrame:
     """Annotate ball rows with reusable scoring flags."""
 
@@ -18,6 +25,38 @@ def add_ball_outcome_flags(balls: pd.DataFrame) -> pd.DataFrame:
         include_lowest=True,
     )
     return flagged
+
+
+def build_phase_run_rates(balls: pd.DataFrame) -> pd.DataFrame:
+    """Compute powerplay, middle, and death over scoring rates."""
+
+    primary_innings = add_ball_outcome_flags(balls)
+    primary_innings = primary_innings[primary_innings["innings_id"] <= 2].copy()
+
+    phase_rates = (
+        primary_innings.groupby(
+            ["match_id", "innings_id", "batting_team_id", "phase"],
+            observed=True,
+        )
+        .apply(_rate_from_phase)
+        .rename("phase_run_rate")
+        .reset_index()
+    )
+    phase_rates = phase_rates.pivot_table(
+        index=["match_id", "innings_id", "batting_team_id"],
+        columns="phase",
+        values="phase_run_rate",
+        fill_value=0.0,
+    ).reset_index()
+    phase_rates.columns.name = None
+    phase_rates = phase_rates.rename(
+        columns={
+            "powerplay": "powerplay_run_rate",
+            "middle": "middle_over_run_rate",
+            "death": "death_over_run_rate",
+        }
+    )
+    return phase_rates
 
 
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
