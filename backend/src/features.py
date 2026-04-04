@@ -141,6 +141,26 @@ def add_bowling_history_features(team_frame: pd.DataFrame) -> pd.DataFrame:
     return enriched
 
 
+def add_recent_rolling_metrics(team_frame: pd.DataFrame) -> pd.DataFrame:
+    """Add short rolling windows to approximate recent form."""
+
+    enriched = team_frame.copy()
+    recent_metrics = [
+        "batting_run_rate",
+        "bowling_run_rate_conceded",
+        "bowling_wicket_rate",
+    ]
+    for window in ROLLING_WINDOWS:
+        for column in recent_metrics:
+            enriched[f"{column}_last_{window}"] = _shifted_group_rolling_mean(
+                enriched,
+                "team_id",
+                column,
+                window=window,
+            ).fillna(0.0)
+    return enriched
+
+
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     """Create per-innings performance aggregates."""
 
