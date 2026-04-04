@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
+import json
 from pathlib import Path
 import re
 from typing import Any
@@ -324,3 +325,23 @@ def validate_tables(tables: dict[str, pd.DataFrame]) -> list[ValidationIssue]:
         ),
     )
     return issues
+
+
+def serialize_validation_issues(issues: list[ValidationIssue]) -> list[dict[str, Any]]:
+    """Convert validation results into JSON-friendly dictionaries."""
+
+    return [
+        {
+            "name": issue.name,
+            "severity": issue.severity,
+            "rows": issue.rows,
+            "details": issue.details,
+        }
+        for issue in issues
+    ]
+
+
+def write_json_payload(payload: dict[str, Any] | list[dict[str, Any]], path: Path) -> None:
+    """Persist JSON output with stable formatting."""
+
+    path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
