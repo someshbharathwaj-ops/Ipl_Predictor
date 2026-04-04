@@ -196,6 +196,29 @@ def add_toss_context_features(team_frame: pd.DataFrame) -> pd.DataFrame:
     return enriched
 
 
+def add_head_to_head_features(team_frame: pd.DataFrame) -> pd.DataFrame:
+    """Track historical outcomes against the same opponent."""
+
+    enriched = team_frame.copy()
+    matchup_key = (
+        enriched["team_id"].astype(str)
+        + "::"
+        + enriched["opponent_team_id"].astype(str)
+    )
+    enriched["head_to_head_matches_before"] = (
+        enriched.assign(_matchup_key=matchup_key)
+        .groupby("_matchup_key")
+        .cumcount()
+    )
+    enriched["head_to_head_win_rate_before_match"] = (
+        enriched.assign(_matchup_key=matchup_key)
+        .groupby("_matchup_key")["won_match"]
+        .transform(lambda values: values.shift().expanding().mean())
+        .fillna(0.5)
+    )
+    return enriched
+
+
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     """Create per-innings performance aggregates."""
 
