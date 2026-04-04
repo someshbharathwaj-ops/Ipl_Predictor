@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 import re
 from typing import Any
@@ -234,3 +235,37 @@ def clean_tables(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
     cleaned["balls"] = clean_ball_columns(cleaned["balls"])
     cleaned["matches"] = clean_match_columns(cleaned["matches"])
     return cleaned
+
+
+def summarize_table(frame: pd.DataFrame) -> dict[str, Any]:
+    """Collect a compact profile for a single table."""
+
+    return {
+        "rows": int(frame.shape[0]),
+        "columns": int(frame.shape[1]),
+        "column_names": list(frame.columns),
+        "missing_values": {
+            column: int(count)
+            for column, count in frame.isna().sum().items()
+            if int(count) > 0
+        },
+    }
+
+
+def build_data_audit(tables: dict[str, pd.DataFrame]) -> dict[str, Any]:
+    """Create a data audit payload for repository inspection."""
+
+    matches = tables["matches"]
+    seasons = tables["seasons"]
+    return {
+        "generated_on": date.today().isoformat(),
+        "tables": {
+            name: summarize_table(frame)
+            for name, frame in tables.items()
+        },
+        "season_years": sorted(seasons["season_year"].tolist()),
+        "match_date_range": {
+            "start": matches["match_date"].min().date().isoformat(),
+            "end": matches["match_date"].max().date().isoformat(),
+        },
+    }
