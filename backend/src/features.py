@@ -109,4 +109,24 @@ def build_team_history_frame(
 ) -> pd.DataFrame:
     """Create one row per team per match before matchup assembly."""
 
-    return matches.copy()
+    team_frame = matches[[
+        "match_id",
+        "match_date",
+        "season_id",
+        "team_id",
+        "opponent_team_id",
+        "venue_name",
+        "city_name",
+        "host_country",
+        "toss_winner_id",
+        "toss_decision",
+        "is_superover",
+        "is_duckworth_lewis",
+        "winner_team_id",
+    ]].copy()
+    team_frame["won_match"] = (team_frame["team_id"] == team_frame["winner_team_id"]).astype(int)
+    team_frame["lost_match"] = (
+        (team_frame["winner_team_id"].notna()) &
+        (team_frame["team_id"] != team_frame["winner_team_id"])
+    ).astype(int)
+    return team_frame
