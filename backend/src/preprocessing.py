@@ -50,6 +50,8 @@ MATCH_RENAME_MAP = {
     "host_country": "host_country",
 }
 
+STRING_MISSING_VALUES = {"", "NA", "N/A", "NULL", "None", "nan"}
+
 
 @dataclass(slots=True)
 class ValidationIssue:
@@ -114,3 +116,31 @@ def normalize_table_columns(tables: dict[str, pd.DataFrame]) -> dict[str, pd.Dat
     normalized["balls"] = normalized["balls"].rename(columns=BALLS_RENAME_MAP)
     normalized["matches"] = normalized["matches"].rename(columns=MATCH_RENAME_MAP)
     return normalized
+
+
+def clean_string_columns(frame: pd.DataFrame) -> pd.DataFrame:
+    """Trim whitespace and standardize blank-like strings."""
+
+    cleaned = frame.copy()
+    object_columns = cleaned.select_dtypes(include="object").columns
+    for column in object_columns:
+        values = cleaned[column].astype(str).str.strip()
+        values = values.replace(list(STRING_MISSING_VALUES), pd.NA)
+        cleaned[column] = values
+    return cleaned
+
+
+def parse_match_dates(matches: pd.DataFrame) -> pd.DataFrame:
+    """Parse the IPL date format into an actual timestamp."""
+
+    parsed = matches.copy()
+    parsed["match_date"] = pd.to_datetime(parsed["match_date"], format="%d-%b-%y")
+    return parsed
+
+
+def apply_basic_types(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Apply the initial set of string cleanup and type conversions."""
+
+    typed = {name: clean_string_columns(frame) for name, frame in tables.items()}
+    typed["matches"] = parse_match_dates(typed["matches"])
+    return typed
