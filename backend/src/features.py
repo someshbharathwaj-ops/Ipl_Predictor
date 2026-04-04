@@ -84,6 +84,22 @@ def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     innings["wicket_rate"] = innings["wickets_lost"] / innings["legal_balls"].where(innings["legal_balls"] > 0, 1)
     innings["dot_ball_percentage"] = innings["dot_balls"] / innings["legal_balls"].where(innings["legal_balls"] > 0, 1)
     innings["boundary_percentage"] = innings["boundary_balls"] / innings["legal_balls"].where(innings["legal_balls"] > 0, 1)
+
+    phase_rates = build_phase_run_rates(primary_innings)
+    innings = innings.merge(
+        phase_rates,
+        on=["match_id", "innings_id", "batting_team_id"],
+        how="left",
+    )
+    innings[[
+        "powerplay_run_rate",
+        "middle_over_run_rate",
+        "death_over_run_rate",
+    ]] = innings[[
+        "powerplay_run_rate",
+        "middle_over_run_rate",
+        "death_over_run_rate",
+    ]].fillna(0.0)
     return innings
 
 
