@@ -219,6 +219,15 @@ def add_head_to_head_features(team_frame: pd.DataFrame) -> pd.DataFrame:
     return enriched
 
 
+def finalize_team_history_frame(team_frame: pd.DataFrame) -> pd.DataFrame:
+    """Fill numeric gaps after feature generation."""
+
+    finalized = team_frame.copy()
+    numeric_columns = finalized.select_dtypes(include=["number", "bool"]).columns
+    finalized[numeric_columns] = finalized[numeric_columns].fillna(0.0)
+    return finalized
+
+
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     """Create per-innings performance aggregates."""
 
@@ -359,4 +368,11 @@ def build_team_history_frame(
         on=["match_id", "team_id"],
         how="left",
     )
-    return team_frame
+    team_frame = add_team_form_features(team_frame)
+    team_frame = add_batting_history_features(team_frame)
+    team_frame = add_bowling_history_features(team_frame)
+    team_frame = add_recent_rolling_metrics(team_frame)
+    team_frame = add_venue_history_features(team_frame)
+    team_frame = add_toss_context_features(team_frame)
+    team_frame = add_head_to_head_features(team_frame)
+    return finalize_team_history_frame(team_frame)
