@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import pandas as pd
 
 
@@ -113,3 +115,16 @@ def extract_model_matrix(match_dataset: pd.DataFrame) -> tuple[pd.DataFrame, pd.
     numeric_features = feature_frame.select_dtypes(include=["number", "bool"]).copy()
     features = numeric_features.drop(columns=["match_id"])
     return features, target
+
+
+def build_feature_manifest(match_dataset: pd.DataFrame, features: pd.DataFrame) -> dict[str, Any]:
+    """Describe the final dataset structure for downstream consumers."""
+
+    return {
+        "rows": int(match_dataset.shape[0]),
+        "columns": int(match_dataset.shape[1]),
+        "model_feature_count": int(features.shape[1]),
+        "target_column": "target",
+        "identifier_columns": ["match_id", "match_date"],
+        "feature_columns": list(features.columns),
+    }
