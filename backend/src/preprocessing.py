@@ -204,6 +204,8 @@ def clean_ball_columns(balls: pd.DataFrame) -> pd.DataFrame:
         errors="coerce",
     )
     cleaned["fielder_id"] = pd.to_numeric(cleaned["fielder_id"], errors="coerce")
+    cleaned["batsman_scored"] = cleaned["batsman_scored"].fillna(0)
+    cleaned["extra_runs"] = cleaned["extra_runs"].fillna(0)
     cleaned["extra_type"] = cleaned["extra_type"].fillna("none").str.lower()
     cleaned["dismissal_type"] = cleaned["dismissal_type"].fillna("none").str.lower()
 
