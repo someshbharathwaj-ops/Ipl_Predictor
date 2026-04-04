@@ -100,6 +100,26 @@ def add_team_form_features(team_frame: pd.DataFrame) -> pd.DataFrame:
     return enriched
 
 
+def add_batting_history_features(team_frame: pd.DataFrame) -> pd.DataFrame:
+    """Add rolling batting form features for each team."""
+
+    enriched = team_frame.copy()
+    batting_metrics = [
+        "batting_run_rate",
+        "batting_powerplay_run_rate",
+        "batting_middle_over_run_rate",
+        "batting_death_over_run_rate",
+        "batting_boundary_percentage",
+    ]
+    for column in batting_metrics:
+        enriched[f"{column}_mean_before_match"] = _shifted_group_expanding_mean(
+            enriched,
+            "team_id",
+            column,
+        ).fillna(0.0)
+    return enriched
+
+
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     """Create per-innings performance aggregates."""
 
