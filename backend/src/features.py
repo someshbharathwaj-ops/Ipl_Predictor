@@ -161,6 +161,25 @@ def add_recent_rolling_metrics(team_frame: pd.DataFrame) -> pd.DataFrame:
     return enriched
 
 
+def add_venue_history_features(team_frame: pd.DataFrame) -> pd.DataFrame:
+    """Track how each team has historically performed at a venue."""
+
+    enriched = team_frame.copy()
+    venue_key = enriched["team_id"].astype(str) + "::" + enriched["venue_name"]
+    enriched["venue_matches_before"] = (
+        enriched.assign(_venue_key=venue_key)
+        .groupby("_venue_key")
+        .cumcount()
+    )
+    enriched["venue_win_rate_before_match"] = (
+        enriched.assign(_venue_key=venue_key)
+        .groupby("_venue_key")["won_match"]
+        .transform(lambda values: values.shift().expanding().mean())
+        .fillna(0.5)
+    )
+    return enriched
+
+
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     """Create per-innings performance aggregates."""
 
