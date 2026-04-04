@@ -66,6 +66,21 @@ NUMERIC_BALL_COLUMNS = [
     "batsman_scored",
     "extra_runs",
 ]
+NUMERIC_MATCH_COLUMNS = [
+    "match_id",
+    "team_id",
+    "opponent_team_id",
+    "season_id",
+    "toss_winner_id",
+    "is_superover",
+    "is_result",
+    "is_duckworth_lewis",
+    "won_by",
+    "winner_team_id",
+    "man_of_the_match_id",
+    "first_umpire_id",
+    "second_umpire_id",
+]
 
 
 @dataclass(slots=True)
@@ -192,4 +207,19 @@ def clean_ball_columns(balls: pd.DataFrame) -> pd.DataFrame:
     cleaned["total_runs"] = cleaned["batsman_scored"] + cleaned["extra_runs"]
     cleaned["is_wicket"] = cleaned["player_dismissal_id"].notna().astype(int)
     cleaned["is_legal_delivery"] = (~cleaned["extra_type"].isin({"wides", "noballs"})).astype(int)
+    return cleaned
+
+
+def clean_match_columns(matches: pd.DataFrame) -> pd.DataFrame:
+    """Apply match-level normalization for modeling use."""
+
+    cleaned = matches.copy()
+    for column in NUMERIC_MATCH_COLUMNS:
+        cleaned[column] = pd.to_numeric(cleaned[column], errors="coerce")
+
+    cleaned["toss_decision"] = cleaned["toss_decision"].str.lower()
+    cleaned["win_type"] = cleaned["win_type"].str.lower()
+    cleaned["venue_name"] = cleaned["venue_name"].fillna("unknown")
+    cleaned["city_name"] = cleaned["city_name"].fillna("unknown")
+    cleaned["host_country"] = cleaned["host_country"].fillna("unknown")
     return cleaned
