@@ -107,6 +107,9 @@ def build_match_dataset(team_history: pd.DataFrame) -> pd.DataFrame:
 def extract_model_matrix(match_dataset: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     """Split features from the binary winner target."""
 
-    target = match_dataset["target"]
-    features = match_dataset.drop(columns=["target"])
+    ordered = match_dataset.sort_values(["match_date", "match_id"]).reset_index(drop=True)
+    target = ordered["target"].astype(int)
+    feature_frame = ordered.drop(columns=["target"])
+    numeric_features = feature_frame.select_dtypes(include=["number", "bool"]).copy()
+    features = numeric_features.drop(columns=["match_id"])
     return features, target
