@@ -38,7 +38,7 @@ def build_phase_run_rates(balls: pd.DataFrame) -> pd.DataFrame:
 
     phase_rates = (
         primary_innings.groupby(
-            ["match_id", "innings_id", "batting_team_id", "phase"],
+            ["match_id", "batting_team_id", "phase"],
             observed=True,
         )
         .apply(_rate_from_phase)
@@ -46,7 +46,7 @@ def build_phase_run_rates(balls: pd.DataFrame) -> pd.DataFrame:
         .reset_index()
     )
     phase_rates = phase_rates.pivot_table(
-        index=["match_id", "innings_id", "batting_team_id"],
+        index=["match_id", "batting_team_id"],
         columns="phase",
         values="phase_run_rate",
         fill_value=0.0,
@@ -236,7 +236,7 @@ def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
 
     innings = (
         primary_innings.groupby(
-            ["match_id", "innings_id", "batting_team_id", "bowling_team_id"],
+            ["match_id", "batting_team_id", "bowling_team_id"],
             as_index=False,
         )
         .agg(
@@ -257,7 +257,7 @@ def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     phase_rates = build_phase_run_rates(primary_innings)
     innings = innings.merge(
         phase_rates,
-        on=["match_id", "innings_id", "batting_team_id"],
+        on=["match_id", "batting_team_id"],
         how="left",
     )
     innings[[
