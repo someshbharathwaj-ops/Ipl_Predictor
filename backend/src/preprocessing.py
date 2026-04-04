@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import re
 from typing import Any
 
 import pandas as pd
@@ -12,6 +13,42 @@ import pandas as pd
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "backend" / "data"
 OUTPUT_DIR = PROJECT_ROOT / "backend" / "Processed"
+
+
+BALLS_RENAME_MAP = {
+    "match_id": "match_id",
+    "innings_id": "innings_id",
+    "over_id": "over_id",
+    "ball_id": "ball_id",
+    "team_batting_id": "batting_team_id",
+    "team_bowling_id": "bowling_team_id",
+    "striker_id": "striker_id",
+    "striker_batting_position": "striker_batting_position",
+    "non_striker_id": "non_striker_id",
+    "bowler_id": "bowler_id",
+    "batsman_scored": "batsman_scored",
+    "extra_type": "extra_type",
+    "extra_runs": "extra_runs",
+    "player_dissimal_id": "player_dismissal_id",
+    "dissimal_type": "dismissal_type",
+    "fielder_id": "fielder_id",
+}
+
+MATCH_RENAME_MAP = {
+    "team_name_id": "team_id",
+    "opponent_team_id": "opponent_team_id",
+    "venue_name": "venue_name",
+    "toss_winner_id": "toss_winner_id",
+    "toss_decision": "toss_decision",
+    "is_superover": "is_superover",
+    "is_result": "is_result",
+    "is_duckworthlewis": "is_duckworth_lewis",
+    "win_type": "win_type",
+    "won_by": "won_by",
+    "match_winner_id": "winner_team_id",
+    "city_name": "city_name",
+    "host_country": "host_country",
+}
 
 
 @dataclass(slots=True)
@@ -48,3 +85,32 @@ def ensure_output_dir(output_dir: Path = OUTPUT_DIR) -> Path:
 
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
+
+
+def to_snake_case(name: str) -> str:
+    """Normalize raw column names to snake case."""
+
+    cleaned = re.sub(r"[^0-9A-Za-z]+", "_", name.strip())
+    cleaned = re.sub(r"([a-z0-9])([A-Z])", r"\1_\2", cleaned)
+    return cleaned.strip("_").lower()
+
+
+def normalize_column_names(frame: pd.DataFrame) -> pd.DataFrame:
+    """Return a copy with snake_case columns."""
+
+    normalized = frame.copy()
+    normalized.columns = [to_snake_case(column) for column in normalized.columns]
+    return normalized
+
+
+def normalize_table_columns(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Normalize schema names across the loaded tables."""
+
+    normalized = {
+        name: normalize_column_names(frame)
+        for name, frame in tables.items()
+    }
+
+    normalized["balls"] = normalized["balls"].rename(columns=BALLS_RENAME_MAP)
+    normalized["matches"] = normalized["matches"].rename(columns=MATCH_RENAME_MAP)
+    return normalized
