@@ -5,6 +5,9 @@ from __future__ import annotations
 import pandas as pd
 
 
+ROLLING_WINDOWS = (3, 5)
+
+
 def _rate_from_phase(group: pd.DataFrame) -> float:
     legal_balls = group["is_legal_delivery"].sum()
     if legal_balls == 0:
@@ -57,6 +60,25 @@ def build_phase_run_rates(balls: pd.DataFrame) -> pd.DataFrame:
         }
     )
     return phase_rates
+
+
+def _shifted_group_expanding_mean(
+    frame: pd.DataFrame,
+    group_column: str,
+    value_column: str,
+) -> pd.Series:
+    grouped = frame.groupby(group_column)[value_column]
+    return grouped.transform(lambda values: values.shift().expanding().mean())
+
+
+def _shifted_group_rolling_mean(
+    frame: pd.DataFrame,
+    group_column: str,
+    value_column: str,
+    window: int,
+) -> pd.Series:
+    grouped = frame.groupby(group_column)[value_column]
+    return grouped.transform(lambda values: values.shift().rolling(window, min_periods=1).mean())
 
 
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
