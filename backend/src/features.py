@@ -164,4 +164,39 @@ def build_team_history_frame(
         on=["match_id", "team_id"],
         how="left",
     )
+
+    bowling_columns = [
+        "match_id",
+        "bowling_team_id",
+        "total_runs",
+        "wickets_lost",
+        "legal_balls",
+        "run_rate",
+        "wicket_rate",
+        "dot_ball_percentage",
+        "boundary_percentage",
+        "powerplay_run_rate",
+        "middle_over_run_rate",
+        "death_over_run_rate",
+    ]
+    bowling_stats = innings_stats[bowling_columns].rename(
+        columns={
+            "bowling_team_id": "team_id",
+            "total_runs": "bowling_runs_conceded",
+            "wickets_lost": "bowling_wickets_taken",
+            "legal_balls": "bowling_legal_balls",
+            "run_rate": "bowling_run_rate_conceded",
+            "wicket_rate": "bowling_wicket_rate",
+            "dot_ball_percentage": "bowling_dot_ball_percentage",
+            "boundary_percentage": "bowling_boundary_percentage_conceded",
+            "powerplay_run_rate": "bowling_powerplay_run_rate_conceded",
+            "middle_over_run_rate": "bowling_middle_over_run_rate_conceded",
+            "death_over_run_rate": "bowling_death_over_run_rate_conceded",
+        }
+    )
+    team_frame = team_frame.merge(
+        bowling_stats,
+        on=["match_id", "team_id"],
+        how="left",
+    )
     return team_frame
