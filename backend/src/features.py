@@ -40,6 +40,11 @@ def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
             extra_runs=("extra_runs", "sum"),
         )
     )
+    innings["overs_faced"] = innings["legal_balls"] / 6.0
+    innings["run_rate"] = innings["total_runs"] / innings["overs_faced"].where(innings["overs_faced"] > 0, 1)
+    innings["wicket_rate"] = innings["wickets_lost"] / innings["legal_balls"].where(innings["legal_balls"] > 0, 1)
+    innings["dot_ball_percentage"] = innings["dot_balls"] / innings["legal_balls"].where(innings["legal_balls"] > 0, 1)
+    innings["boundary_percentage"] = innings["boundary_balls"] / innings["legal_balls"].where(innings["legal_balls"] > 0, 1)
     return innings
 
 
