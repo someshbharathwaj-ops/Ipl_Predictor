@@ -81,6 +81,25 @@ def _shifted_group_rolling_mean(
     return grouped.transform(lambda values: values.shift().rolling(window, min_periods=1).mean())
 
 
+def add_team_form_features(team_frame: pd.DataFrame) -> pd.DataFrame:
+    """Add win-rate features based only on prior matches."""
+
+    enriched = team_frame.sort_values(["match_date", "match_id", "team_id"]).copy()
+    enriched["matches_played_before"] = enriched.groupby("team_id").cumcount()
+    enriched["win_rate_before_match"] = _shifted_group_expanding_mean(
+        enriched,
+        "team_id",
+        "won_match",
+    ).fillna(0.5)
+    enriched["last_5_matches_win_rate"] = _shifted_group_rolling_mean(
+        enriched,
+        "team_id",
+        "won_match",
+        window=5,
+    ).fillna(0.5)
+    return enriched
+
+
 def build_innings_stats(balls: pd.DataFrame) -> pd.DataFrame:
     """Create per-innings performance aggregates."""
 
