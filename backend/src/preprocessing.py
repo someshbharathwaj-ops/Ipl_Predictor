@@ -51,6 +51,7 @@ MATCH_RENAME_MAP = {
 }
 
 STRING_MISSING_VALUES = {"", "NA", "N/A", "NULL", "None", "nan"}
+PLAYER_DROP_COLUMNS = ["unnamed_7"]
 
 
 @dataclass(slots=True)
@@ -144,3 +145,16 @@ def apply_basic_types(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame
     typed = {name: clean_string_columns(frame) for name, frame in tables.items()}
     typed["matches"] = parse_match_dates(typed["matches"])
     return typed
+
+
+def drop_noisy_columns(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Drop clearly empty or irrelevant raw columns."""
+
+    cleaned = {name: frame.copy() for name, frame in tables.items()}
+    existing_player_drops = [
+        column for column in PLAYER_DROP_COLUMNS
+        if column in cleaned["players"].columns
+    ]
+    if existing_player_drops:
+        cleaned["players"] = cleaned["players"].drop(columns=existing_player_drops)
+    return cleaned
