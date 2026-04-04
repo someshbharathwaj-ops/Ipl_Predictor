@@ -223,7 +223,11 @@ def finalize_team_history_frame(team_frame: pd.DataFrame) -> pd.DataFrame:
     """Fill numeric gaps after feature generation."""
 
     finalized = team_frame.copy()
-    numeric_columns = finalized.select_dtypes(include=["number", "bool"]).columns
+    numeric_columns = [
+        column
+        for column in finalized.select_dtypes(include=["number", "bool"]).columns
+        if column != "winner_team_id"
+    ]
     finalized[numeric_columns] = finalized[numeric_columns].fillna(0.0)
     return finalized
 
