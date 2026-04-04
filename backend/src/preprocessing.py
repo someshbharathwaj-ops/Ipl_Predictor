@@ -44,6 +44,7 @@ MATCH_RENAME_MAP = {
     "toss_decision": "toss_decision",
     "is_superover": "is_superover",
     "is_result": "is_result",
+    "is_duck_worth_lewis": "is_duckworth_lewis",
     "is_duckworthlewis": "is_duckworth_lewis",
     "win_type": "win_type",
     "won_by": "won_by",
