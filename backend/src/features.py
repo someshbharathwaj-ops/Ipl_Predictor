@@ -278,7 +278,7 @@ def build_team_history_frame(
 ) -> pd.DataFrame:
     """Create one row per team per match before matchup assembly."""
 
-    team_frame = matches[[
+    match_base = matches[[
         "match_id",
         "match_date",
         "season_id",
@@ -293,10 +293,18 @@ def build_team_history_frame(
         "is_duckworth_lewis",
         "winner_team_id",
     ]].copy()
+
+    mirrored = match_base.rename(
+        columns={
+            "team_id": "opponent_team_id",
+            "opponent_team_id": "team_id",
+        }
+    )
+    team_frame = pd.concat([match_base, mirrored], ignore_index=True)
     team_frame["won_match"] = (team_frame["team_id"] == team_frame["winner_team_id"]).astype(int)
     team_frame["lost_match"] = (
-        (team_frame["winner_team_id"].notna()) &
-        (team_frame["team_id"] != team_frame["winner_team_id"])
+        (team_frame["winner_team_id"].notna())
+        & (team_frame["team_id"] != team_frame["winner_team_id"])
     ).astype(int)
 
     batting_columns = [
