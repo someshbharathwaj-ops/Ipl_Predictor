@@ -52,6 +52,20 @@ MATCH_RENAME_MAP = {
 
 STRING_MISSING_VALUES = {"", "NA", "N/A", "NULL", "None", "nan"}
 PLAYER_DROP_COLUMNS = ["unnamed_7"]
+NUMERIC_BALL_COLUMNS = [
+    "match_id",
+    "innings_id",
+    "over_id",
+    "ball_id",
+    "batting_team_id",
+    "bowling_team_id",
+    "striker_id",
+    "striker_batting_position",
+    "non_striker_id",
+    "bowler_id",
+    "batsman_scored",
+    "extra_runs",
+]
 
 
 @dataclass(slots=True)
@@ -157,4 +171,25 @@ def drop_noisy_columns(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFram
     ]
     if existing_player_drops:
         cleaned["players"] = cleaned["players"].drop(columns=existing_player_drops)
+    return cleaned
+
+
+def clean_ball_columns(balls: pd.DataFrame) -> pd.DataFrame:
+    """Apply ball-by-ball specific cleaning and derived metrics."""
+
+    cleaned = balls.copy()
+    for column in NUMERIC_BALL_COLUMNS:
+        cleaned[column] = pd.to_numeric(cleaned[column], errors="coerce")
+
+    cleaned["player_dismissal_id"] = pd.to_numeric(
+        cleaned["player_dismissal_id"],
+        errors="coerce",
+    )
+    cleaned["fielder_id"] = pd.to_numeric(cleaned["fielder_id"], errors="coerce")
+    cleaned["extra_type"] = cleaned["extra_type"].fillna("none").str.lower()
+    cleaned["dismissal_type"] = cleaned["dismissal_type"].fillna("none").str.lower()
+
+    cleaned["total_runs"] = cleaned["batsman_scored"] + cleaned["extra_runs"]
+    cleaned["is_wicket"] = cleaned["player_dismissal_id"].notna().astype(int)
+    cleaned["is_legal_delivery"] = (~cleaned["extra_type"].isin({"wides", "noballs"})).astype(int)
     return cleaned
