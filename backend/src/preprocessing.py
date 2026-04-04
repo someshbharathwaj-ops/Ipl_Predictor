@@ -319,12 +319,12 @@ def validate_tables(tables: dict[str, pd.DataFrame]) -> list[ValidationIssue]:
         ),
     ]
 
-    innings_balls = balls.groupby(["match_id", "innings_id"])["is_legal_delivery"].sum()
+    over_events = balls.groupby(["match_id", "innings_id", "over_id"]).size()
     issues.append(
         _build_issue(
-            "innings_with_too_many_legal_balls",
+            "overs_with_too_many_recorded_events",
             "warning",
-            innings_balls > 120,
+            over_events > 9,
         ),
     )
     return issues
