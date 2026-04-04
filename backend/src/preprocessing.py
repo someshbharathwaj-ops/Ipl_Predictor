@@ -223,3 +223,14 @@ def clean_match_columns(matches: pd.DataFrame) -> pd.DataFrame:
     cleaned["city_name"] = cleaned["city_name"].fillna("unknown")
     cleaned["host_country"] = cleaned["host_country"].fillna("unknown")
     return cleaned
+
+
+def clean_tables(tables: dict[str, pd.DataFrame]) -> dict[str, pd.DataFrame]:
+    """Run the full repository cleaning flow."""
+
+    cleaned = normalize_table_columns(tables)
+    cleaned = apply_basic_types(cleaned)
+    cleaned = drop_noisy_columns(cleaned)
+    cleaned["balls"] = clean_ball_columns(cleaned["balls"])
+    cleaned["matches"] = clean_match_columns(cleaned["matches"])
+    return cleaned
