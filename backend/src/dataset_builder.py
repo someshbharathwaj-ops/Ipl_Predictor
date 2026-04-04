@@ -85,10 +85,10 @@ def build_match_dataset(team_history: pd.DataFrame) -> pd.DataFrame:
 
     dataset = side_a.merge(
         side_b,
-        on=["match_id", "match_date"],
+        left_on=["match_id", "match_date", "team1_team_id", "team1_opponent_team_id"],
+        right_on=["match_id", "match_date", "team2_opponent_team_id", "team2_team_id"],
         how="inner",
     )
-    dataset = dataset[dataset["team1_team_id"] != dataset["team2_team_id"]]
     dataset = dataset[dataset["team1_team_id"] < dataset["team2_team_id"]]
     dataset["target"] = (dataset["team1_team_id"] == dataset["team1_winner_team_id"]).astype(int)
     dataset["team1_is_toss_winner"] = (
