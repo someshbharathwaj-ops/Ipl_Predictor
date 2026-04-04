@@ -17,6 +17,12 @@ IDENTIFIER_COLUMNS = {
     "host_country",
     "toss_decision",
 }
+LEAKY_PREFIXES = (
+    "team1_won_match",
+    "team1_lost_match",
+    "team2_won_match",
+    "team2_lost_match",
+)
 
 
 def _rename_side_columns(frame: pd.DataFrame, prefix: str) -> pd.DataFrame:
@@ -53,6 +59,23 @@ def add_relative_strength_features(dataset: pd.DataFrame) -> pd.DataFrame:
     return enriched
 
 
+def drop_leaky_or_unused_columns(dataset: pd.DataFrame) -> pd.DataFrame:
+    """Remove identifiers and direct outcome fields from the model table."""
+
+    pruned = dataset.copy()
+    drop_columns = [
+        column
+        for column in pruned.columns
+        if column in {
+            "team1_winner_team_id",
+            "team2_winner_team_id",
+        }
+        or column.endswith("_match_id")
+        or any(column.startswith(prefix) for prefix in LEAKY_PREFIXES)
+    ]
+    return pruned.drop(columns=drop_columns)
+
+
 def build_match_dataset(team_history: pd.DataFrame) -> pd.DataFrame:
     """Assemble one-row-per-match data."""
 
@@ -77,7 +100,8 @@ def build_match_dataset(team_history: pd.DataFrame) -> pd.DataFrame:
     dataset["team1_home_country"] = (
         dataset["team1_host_country"].str.lower() == "india"
     ).astype(int)
-    return add_relative_strength_features(dataset)
+    dataset = add_relative_strength_features(dataset)
+    return drop_leaky_or_unused_columns(dataset)
 
 
 def extract_model_matrix(match_dataset: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
