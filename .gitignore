@@ -1,55 +1,52 @@
-# 🔹 Python cache
+# Python cache
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 *.pyc.*
 
-# 🔹 Virtual environment (VERY IMPORTANT)
+# Virtual environments
 venv/
-.env/
 .venv/
 
-# 🔹 Environment variables
+# Local environment files
 .env
+.python-version
 
-# 🔹 Data files (large datasets)
-data/
-processed/
-
-# 🔹 Model files (can be large)
-models/
+# Generated artifacts
+backend/Processed/*
+!backend/Processed/.gitkeep
+backend/models/*
+!backend/models/.gitkeep
 *.pkl
 *.h5
 
-# 🔹 Jupyter (if ever used)
+# Jupyter
 .ipynb_checkpoints/
 
-# 🔹 Logs
+# Logs
 *.log
 
-# 🔹 OS files
+# OS and IDE files
 .DS_Store
 Thumbs.db
-
-# 🔹 VS Code settings (optional)
 .vscode/
 
-# 🔹 Build / cache
+# Build and cache
 build/
 dist/
 *.egg-info/
+.pytest_cache/
+.mypy_cache/
+htmlcov/
+.coverage
 
-# 🔹 Temporary files
+# Temporary files
 *.tmp
 *.temp
 
-# 🔹 Node (if you add frontend later)
+# Frontend dependencies
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# 🔹 Coverage / testing
-.coverage
-htmlcov/
