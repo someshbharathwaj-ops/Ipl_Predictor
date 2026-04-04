@@ -43,6 +43,16 @@ def build_match_dataset(team_history: pd.DataFrame) -> pd.DataFrame:
     )
     dataset = dataset[dataset["team1_team_id"] != dataset["team2_team_id"]]
     dataset = dataset[dataset["team1_team_id"] < dataset["team2_team_id"]]
+    dataset["target"] = (dataset["team1_team_id"] == dataset["team1_winner_team_id"]).astype(int)
+    dataset["team1_is_toss_winner"] = (
+        dataset["team1_toss_winner_id"] == dataset["team1_team_id"]
+    ).astype(int)
+    dataset["team2_is_toss_winner"] = (
+        dataset["team1_toss_winner_id"] == dataset["team2_team_id"]
+    ).astype(int)
+    dataset["team1_home_country"] = (
+        dataset["team1_host_country"].str.lower() == "india"
+    ).astype(int)
     return dataset
 
 
