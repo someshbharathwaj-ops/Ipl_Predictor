@@ -8,13 +8,6 @@ import pandas as pd
 ROLLING_WINDOWS = (3, 5)
 
 
-def _rate_from_phase(group: pd.DataFrame) -> float:
-    legal_balls = group["is_legal_delivery"].sum()
-    if legal_balls == 0:
-        return 0.0
-    return float(group["total_runs"].sum() / (legal_balls / 6.0))
-
-
 def add_ball_outcome_flags(balls: pd.DataFrame) -> pd.DataFrame:
     """Annotate ball rows with reusable scoring flags."""
 
@@ -36,20 +29,26 @@ def build_phase_run_rates(balls: pd.DataFrame) -> pd.DataFrame:
     primary_innings = add_ball_outcome_flags(balls)
     primary_innings = primary_innings[primary_innings["innings_id"] <= 2].copy()
 
-    phase_rates = (
+    phase_totals = (
         primary_innings.groupby(
             ["match_id", "batting_team_id", "phase"],
             observed=True,
         )
-        .apply(_rate_from_phase)
-        .rename("phase_run_rate")
+        .agg(
+            phase_runs=("total_runs", "sum"),
+            phase_legal_balls=("is_legal_delivery", "sum"),
+        )
         .reset_index()
     )
-    phase_rates = phase_rates.pivot_table(
+    phase_totals["phase_run_rate"] = phase_totals["phase_runs"] / (
+        phase_totals["phase_legal_balls"].where(phase_totals["phase_legal_balls"] > 0, 1) / 6.0
+    )
+    phase_rates = phase_totals.pivot_table(
         index=["match_id", "batting_team_id"],
         columns="phase",
         values="phase_run_rate",
         fill_value=0.0,
+        observed=True,
     ).reset_index()
     phase_rates.columns.name = None
     phase_rates = phase_rates.rename(
