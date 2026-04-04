@@ -269,3 +269,58 @@ def build_data_audit(tables: dict[str, pd.DataFrame]) -> dict[str, Any]:
             "end": matches["match_date"].max().date().isoformat(),
         },
     }
+
+
+def _build_issue(
+    name: str,
+    severity: str,
+    mask: pd.Series,
+    **details: Any,
+) -> ValidationIssue:
+    return ValidationIssue(
+        name=name,
+        severity=severity,
+        rows=int(mask.sum()),
+        details=details,
+    )
+
+
+def validate_tables(tables: dict[str, pd.DataFrame]) -> list[ValidationIssue]:
+    """Run logical integrity checks across the cleaned tables."""
+
+    balls = tables["balls"]
+    matches = tables["matches"]
+
+    issues = [
+        _build_issue(
+            "negative_total_runs",
+            "error",
+            balls["total_runs"] < 0,
+        ),
+        _build_issue(
+            "invalid_over_range",
+            "error",
+            ~balls["over_id"].between(1, 20),
+        ),
+        _build_issue(
+            "invalid_ball_range",
+            "error",
+            ~balls["ball_id"].between(1, 9),
+        ),
+        _build_issue(
+            "no_result_matches",
+            "warning",
+            matches["winner_team_id"].isna(),
+            match_ids=matches.loc[matches["winner_team_id"].isna(), "match_id"].tolist(),
+        ),
+    ]
+
+    innings_balls = balls.groupby(["match_id", "innings_id"])["is_legal_delivery"].sum()
+    issues.append(
+        _build_issue(
+            "innings_with_too_many_legal_balls",
+            "warning",
+            innings_balls > 120,
+        ),
+    )
+    return issues
