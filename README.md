@@ -1,79 +1,113 @@
 # IPL Predictor
 
-This repository packages an IPL match simulator as a single FastAPI app with a built-in static frontend. It combines a time-aware data pipeline, a micrograd-style winner model, and score estimation logic for interactive match previews.
+This repository packages the IPL predictor as one React frontend and one unified prediction API. The frontend lives in `frontend/`, and every runtime backend endpoint is standardized under `/api`.
 
-The project uses `backend/data/IPL.csv` as the primary historical source and standardizes it into cleaned match, ball-by-ball, and feature datasets covering IPL seasons `2008-2025`.
+## Final Structure
 
-## What Ships
+- `frontend/`: the only frontend source of truth
+- `frontend/src/main.jsx`: React entry point
+- `frontend/src/App.jsx`: single-page app shell
+- `frontend/src/services/api.js`: shared frontend API client
+- `backend/web/app.py`: local FastAPI app exposing `/api/*`
+- `backend/web/api_handlers.py`: shared API contracts and handlers
+- `api/*.py`: thin Vercel wrappers that reuse the same backend handlers
+- `backend/main.py`: model loading, artifact bootstrapping, and prediction logic
+- `backend/src/`: dataset pipeline and feature engineering code
 
-- `backend/src/preprocessing.py`: raw loading, schema cleanup, validation, and canonical exports
-- `backend/src/features.py`: innings aggregates and leakage-safe team history features
-- `backend/src/dataset_builder.py`: one-row-per-match dataset assembly and model matrix export
-- `backend/src/maindataset.py`: full dataset pipeline runner
-- `backend/main.py`: micrograd training utilities, artifact bootstrapping, and prediction logic
-- `backend/web/app.py`: FastAPI deployment entrypoint
-- `backend/web/static/`: frontend served directly by FastAPI
+## API Design
 
-## Runtime Behavior
+All backend runtime endpoints are standardized under `/api`:
 
-- The app serves the browser UI at `/`
-- The API serves `/health`, `/metadata`, and `/predict`
-- Generated files in `backend/Processed` and the trained model in `backend/models/model.pkl` are not committed
-- On a fresh deployment, the app can rebuild missing processed datasets from `backend/data/IPL.csv`
-- If the trained model is missing, the app can train a fallback micrograd model automatically
+- `GET /api/health`
+- `GET /api/metadata`
+- `POST /api/predict`
 
-## Install
+The React frontend calls these endpoints through one consistent base URL. In development, Vite proxies `/api` to the local FastAPI server. In production, Vercel serves the frontend and Python API functions from the same repo root.
+
+## Local Development
+
+Install backend dependencies:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-## Run Locally
+Install frontend dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+Run the backend:
 
 ```bash
 uvicorn backend.web.app:app --host 127.0.0.1 --port 8000
 ```
 
+Run the frontend:
+
+```bash
+cd frontend
+npm run dev
+```
+
 Open:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:5173
 ```
 
-## Deploy
+## Environment Variables
 
-Use this entrypoint:
+Frontend:
+
+- `VITE_API_BASE_URL`
+  - optional
+  - defaults to `/api`
+  - set this only if the frontend must call a different backend origin
+
+See [frontend/.env.example](c:/Users/SOMESH%20BHARATHWAJ/Documents/GitHub/IPL_Predictor/frontend/.env.example).
+
+## Deployment
+
+### Vercel
+
+Use the repository root as the project root, not `frontend/`.
+
+Expected deployment behavior:
+
+- Vercel builds the React app from `frontend/`
+- Vercel exposes Python API functions from `api/`
+- rewrites in `vercel.json` keep `/health`, `/metadata`, and `/predict` aligned with `/api/*`
+
+### Generic Python Hosting
+
+You can also run the local FastAPI backend directly:
 
 ```bash
 uvicorn backend.web.app:app --host 0.0.0.0 --port $PORT
 ```
 
-A `Procfile` is included for platforms that support it. No separate frontend build step is required.
+## Validation
 
-## Manual Dataset Rebuild
+Frontend build:
 
 ```bash
-python backend/src/maindataset.py
+cd frontend
+npm run build
 ```
 
-## Example Prediction Payload
+Backend smoke tests:
 
-```json
-{
-  "team1": "Chennai Super Kings",
-  "team2": "Mumbai Indians",
-  "toss_winner": "Mumbai Indians",
-  "user_predicted_score_team1": 180,
-  "user_predicted_score_team2": 170,
-  "key_player_team1": "MS Dhoni",
-  "key_player_team2": "Jasprit Bumrah"
-}
+```bash
+python -m unittest backend.tests.test_api_smoke
 ```
 
-## Modeling Notes
+## Data And Model Notes
 
-- `target = 1` means the canonical `team1` side won the match
-- no-result matches are excluded from the training set
-- all rolling and form features are shifted to avoid future leakage
-- normalization happens after a chronological train/validation split
-- the first cold start can take longer because missing artifacts may be generated automatically
+- `backend/Processed/team_history_features.csv`
+- `backend/Processed/match_dataset.csv`
+- `backend/models/model.pkl`
+
+These runtime artifacts are included because the deployed API needs them to answer `/api/metadata` and `/api/predict` without rebuilding the full dataset at request time.
