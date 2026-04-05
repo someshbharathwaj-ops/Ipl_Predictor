@@ -1,61 +1,62 @@
 # IPL Predictor
 
-This repository contains a time-aware data pipeline for building one-row-per-match IPL training data for a micrograd-style neural network.
+This repository packages an IPL match simulator as a single FastAPI app with a built-in static frontend. It combines a time-aware data pipeline, a micrograd-style winner model, and score estimation logic for interactive match previews.
 
-The project now prefers `backend/data/IPL.csv` as the primary historical source because it provides unified ball-by-ball IPL coverage from 2008 through 2025. The older split files remain as fallback inputs only.
+The project uses `backend/data/IPL.csv` as the primary historical source and standardizes it into cleaned match, ball-by-ball, and feature datasets covering IPL seasons `2008-2025`.
 
-Pipeline flow:
+## What Ships
 
-1. Raw CSV tables from `backend/data`
-2. Cleaning, schema normalization, and validation
-3. Time-aware team and matchup feature engineering
-4. Final match dataset and numeric model input in `backend/Processed`
-
-The current historical dataset covers IPL seasons 2008 through 2016. The rebuilt pipeline avoids target leakage by using only information available before each match.
-
-## Project layout
-
-- `backend/src/preprocessing.py`: raw table loading, schema cleanup, derived columns, validation, and audit output
-- `backend/src/features.py`: innings aggregates and pre-match franchise features
+- `backend/src/preprocessing.py`: raw loading, schema cleanup, validation, and canonical exports
+- `backend/src/features.py`: innings aggregates and leakage-safe team history features
 - `backend/src/dataset_builder.py`: one-row-per-match dataset assembly and model matrix export
-- `backend/src/maindataset.py`: end-to-end pipeline runner
+- `backend/src/maindataset.py`: full dataset pipeline runner
+- `backend/main.py`: micrograd training utilities, artifact bootstrapping, and prediction logic
+- `backend/web/app.py`: FastAPI deployment entrypoint
+- `backend/web/static/`: frontend served directly by FastAPI
 
-## Generated outputs
+## Runtime Behavior
 
-- `innings_stats.csv`: team batting innings aggregates by match
-- `team_history_features.csv`: one row per team per match with shifted historical features
-- `match_dataset.csv`: one row per decided match with both teams and context joined together
-- `micrograd_model_input.csv`: numeric model-ready feature matrix with the `target` column
-- `ball_by_ball_2008_2025.csv`: canonical expanded ball-by-ball export
-- `matches_2008_2025.csv`: canonical expanded match-level export
-- `data_audit.json`: schema and missing-value audit
-- `validation_report.json`: logical data integrity checks
-- `feature_manifest.json`: final dataset structure and feature list
-- `dataset_coverage.json`: season/date coverage summary
-- `expansion_status.json`: whether the repo already covers the requested range
-- `api_ingestion_plan.json`: fallback ingestion design for future source gaps
+- The app serves the browser UI at `/`
+- The API serves `/health`, `/metadata`, and `/predict`
+- Generated files in `backend/Processed` and the trained model in `backend/models/model.pkl` are not committed
+- On a fresh deployment, the app can rebuild missing processed datasets from `backend/data/IPL.csv`
+- If the trained model is missing, the app can train a fallback micrograd model automatically
 
-## Running the pipeline
+## Install
+
+```bash
+pip install -r requirements.txt
+```
+
+## Run Locally
+
+```bash
+uvicorn backend.web.app:app --host 127.0.0.1 --port 8000
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000
+```
+
+## Deploy
+
+Use this entrypoint:
+
+```bash
+uvicorn backend.web.app:app --host 0.0.0.0 --port $PORT
+```
+
+A `Procfile` is included for platforms that support it. No separate frontend build step is required.
+
+## Manual Dataset Rebuild
 
 ```bash
 python backend/src/maindataset.py
 ```
 
-## Prediction API
-
-Run the backend API with:
-
-```bash
-uvicorn backend.web.app:app --reload
-```
-
-Available endpoints:
-
-- `GET /health`
-- `GET /metadata`
-- `POST /predict`
-
-Example payload:
+## Example Prediction Payload
 
 ```json
 {
@@ -69,24 +70,10 @@ Example payload:
 }
 ```
 
-## Frontend
-
-Install and run the frontend from the `frontend` directory:
-
-```bash
-npm install
-npm run dev
-```
-
-If needed, point the UI to a different backend with:
-
-```bash
-VITE_API_BASE_URL=http://127.0.0.1:8000
-```
-
-## Modeling notes
+## Modeling Notes
 
 - `target = 1` means the canonical `team1` side won the match
 - no-result matches are excluded from the training set
-- feature windows are shifted so each match only sees historical information
-- normalization is best applied after a time-based train/validation split to avoid leakage
+- all rolling and form features are shifted to avoid future leakage
+- normalization happens after a chronological train/validation split
+- the first cold start can take longer because missing artifacts may be generated automatically

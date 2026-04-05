@@ -9,6 +9,7 @@ import math
 import os
 import pickle
 import random
+import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,6 +26,12 @@ TEAM_HISTORY_PATH = PROJECT_ROOT / "backend" / "Processed" / "team_history_featu
 MATCH_DATASET_PATH = PROJECT_ROOT / "backend" / "Processed" / "match_dataset.csv"
 MODEL_OUTPUT_PATH = PROJECT_ROOT / "backend" / "models" / "model.pkl"
 IPL_SOURCE_PATH = PROJECT_ROOT / "backend" / "data" / "IPL.csv"
+PIPELINE_ENTRYPOINT = SRC_DIR / "maindataset.py"
+REQUIRED_PROCESSED_PATHS = (
+    PROCESSED_DATASET_PATH,
+    TEAM_HISTORY_PATH,
+    MATCH_DATASET_PATH,
+)
 DELTA_METRICS = [
     "win_rate_before_match",
     "last_5_matches_win_rate",
@@ -110,9 +117,58 @@ Value = micrograd_module.Value
 MLP = network_module.MLP
 
 
+@functools.lru_cache(maxsize=1)
+def ensure_processed_artifacts() -> None:
+    """Generate processed datasets from raw IPL data when deployment starts cold."""
+
+    if all(path.exists() for path in REQUIRED_PROCESSED_PATHS):
+        return
+
+    result = subprocess.run(
+        [sys.executable, str(PIPELINE_ENTRYPOINT)],
+        cwd=PROJECT_ROOT,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        error_output = (result.stderr or result.stdout).strip()
+        raise RuntimeError(f"Failed to build processed datasets: {error_output}")
+
+    missing = [str(path) for path in REQUIRED_PROCESSED_PATHS if not path.exists()]
+    if missing:
+        raise RuntimeError(
+            "Processed datasets are still missing after pipeline generation: "
+            + ", ".join(missing)
+        )
+
+
+def ensure_model_artifact() -> None:
+    """Train a model automatically when deployment has no saved weights yet."""
+
+    ensure_processed_artifacts()
+    if MODEL_OUTPUT_PATH.exists():
+        return
+
+    epochs = int(os.getenv("MICROGRAD_EPOCHS", "1"))
+    learning_rate = float(os.getenv("MICROGRAD_LR", "0.005"))
+    batch_size = int(os.getenv("MICROGRAD_BATCH", "16"))
+    seed = int(os.getenv("MICROGRAD_SEED", "42"))
+    train_model(
+        epochs=epochs,
+        learning_rate=learning_rate,
+        batch_size=batch_size,
+        seed=seed,
+    )
+
+    if not MODEL_OUTPUT_PATH.exists():
+        raise RuntimeError("Model training completed without producing model.pkl")
+
+
 def load_dataset(path: Path = PROCESSED_DATASET_PATH) -> tuple[pd.DataFrame, pd.Series]:
     """Load the processed micrograd training dataset."""
 
+    ensure_processed_artifacts()
     frame = pd.read_csv(path)
     if "target" not in frame.columns:
         raise ValueError("Expected a target column in micrograd_model_input.csv")
@@ -125,6 +181,7 @@ def load_dataset(path: Path = PROCESSED_DATASET_PATH) -> tuple[pd.DataFrame, pd.
 def load_team_history(path: Path = TEAM_HISTORY_PATH) -> pd.DataFrame:
     """Load the processed team history feature table."""
 
+    ensure_processed_artifacts()
     frame = pd.read_csv(path)
     frame["match_date"] = pd.to_datetime(frame["match_date"], errors="coerce")
     return frame.sort_values(["match_date", "match_id"]).reset_index(drop=True)
@@ -133,6 +190,7 @@ def load_team_history(path: Path = TEAM_HISTORY_PATH) -> pd.DataFrame:
 def load_match_dataset(path: Path = MATCH_DATASET_PATH) -> pd.DataFrame:
     """Load the wide match-level feature dataset."""
 
+    ensure_processed_artifacts()
     frame = pd.read_csv(path)
     frame["match_date"] = pd.to_datetime(frame["match_date"], errors="coerce")
     return frame.sort_values(["match_date", "match_id"]).reset_index(drop=True)
@@ -323,6 +381,7 @@ def save_model(
 def load_saved_model(path: Path = MODEL_OUTPUT_PATH) -> dict[str, Any]:
     """Load the serialized model payload from disk."""
 
+    ensure_model_artifact()
     with path.open("rb") as handle:
         return pickle.load(handle)
 
@@ -557,37 +616,88 @@ def build_prediction_feature_row(
     return pd.DataFrame([[row[column] for column in feature_columns]], columns=feature_columns)
 
 
+def clamp(value: float, lower: float, upper: float) -> float:
+    """Clamp a numeric value into a closed interval."""
+
+    return max(lower, min(upper, value))
+
+
+def estimate_venue_par_score(venue_reference: pd.Series | None) -> float:
+    """Estimate a venue baseline from the latest comparable matchup row."""
+
+    if venue_reference is None:
+        return 168.0
+
+    score_candidates = []
+    for column in ("team1_batting_runs", "team2_batting_runs"):
+        value = venue_reference.get(column)
+        if pd.notna(value):
+            score_candidates.append(float(value))
+    if not score_candidates:
+        return 168.0
+    return sum(score_candidates) / len(score_candidates)
+
+
 def estimate_team_score(
     batting_row: pd.Series,
     bowling_row: pd.Series,
     venue_reference: pd.Series | None,
     batting_key_player: str,
+    is_chasing: bool,
+    chase_target: int | None = None,
 ) -> tuple[int, int]:
     """Estimate a realistic T20 score and wickets using historical strengths."""
 
-    batting_mean = float(batting_row.get("batting_runs", 160.0))
-    batting_form = float(batting_row.get("batting_run_rate_mean_before_match", 8.2)) * 20.0
-    powerplay_boost = float(batting_row.get("batting_powerplay_run_rate_mean_before_match", 7.8)) * 2.0
-    death_boost = float(batting_row.get("batting_death_over_run_rate_mean_before_match", 9.5)) * 1.5
-    bowling_drag = float(bowling_row.get("bowling_run_rate_conceded_mean_before_match", 8.2)) * 12.0
-    bowling_wickets = float(bowling_row.get("bowling_wicket_rate_mean_before_match", 0.05))
-    venue_adjustment = 0.0
-    if venue_reference is not None:
-        venue_adjustment = float(venue_reference.get("team1_batting_runs", batting_mean)) * 0.05
+    venue_par = estimate_venue_par_score(venue_reference)
+    batting_form_runs = float(batting_row.get("batting_run_rate_mean_before_match", 8.2)) * 20.0
+    batting_recent_runs = float(batting_row.get("batting_run_rate_last_5", batting_row.get("batting_run_rate_last_3", 8.2))) * 20.0
+    opponent_conceded_runs = float(
+        bowling_row.get("bowling_run_rate_conceded_mean_before_match", 8.3)
+    ) * 20.0
 
-    key_player_boost = 6.0 if batting_key_player.strip() else 0.0
-    blended_score = (
-        0.35 * batting_mean
-        + 0.30 * batting_form
-        + 0.10 * powerplay_boost
-        + 0.10 * death_boost
-        + 0.15 * bowling_drag
-        + venue_adjustment
+    powerplay_edge = (
+        float(batting_row.get("batting_powerplay_run_rate_mean_before_match", 8.0))
+        - float(bowling_row.get("bowling_powerplay_run_rate_conceded_mean_before_match", 8.0))
+    ) * 3.5
+    death_edge = (
+        float(batting_row.get("batting_death_over_run_rate_mean_before_match", 9.5))
+        - float(bowling_row.get("bowling_death_over_run_rate_conceded_mean_before_match", 9.5))
+    ) * 4.0
+    boundary_edge = (
+        float(batting_row.get("batting_boundary_percentage_mean_before_match", 0.19))
+        - float(bowling_row.get("bowling_boundary_percentage_conceded_mean_before_match", 0.19))
+    ) * 140.0
+    dot_ball_drag = (
+        float(bowling_row.get("bowling_dot_ball_percentage_mean_before_match", 0.34))
+        - float(batting_row.get("batting_dot_ball_percentage", 0.34))
+    ) * 55.0
+    key_player_boost = 4.0 if batting_key_player.strip() else 0.0
+    chase_adjustment = 6.0 if is_chasing else 0.0
+
+    projected = (
+        0.28 * venue_par
+        + 0.26 * batting_form_runs
+        + 0.18 * batting_recent_runs
+        + 0.20 * opponent_conceded_runs
+        + powerplay_edge
+        + death_edge
+        + boundary_edge
+        - dot_ball_drag
         + key_player_boost
+        + chase_adjustment
     )
-    wickets = int(round(5 + bowling_wickets * 40))
-    score = int(round(max(120, min(220, blended_score))))
-    wickets = max(3, min(9, wickets))
+
+    if is_chasing and chase_target is not None:
+        projected = 0.55 * projected + 0.45 * chase_target
+
+    opponent_wicket_pressure = float(bowling_row.get("bowling_wicket_rate_mean_before_match", 0.05))
+    projected_wickets = (
+        0.45 * float(batting_row.get("batting_wickets_lost", 6.0))
+        + opponent_wicket_pressure * 55.0
+    )
+
+    score = int(round(clamp(projected, 135.0, 215.0)))
+    wickets = int(round(clamp(projected_wickets, 4.0, 9.0)))
     return score, wickets
 
 
@@ -636,23 +746,58 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
     team1_latest = latest_team_row(team_history, team1_name)
     team2_latest = latest_team_row(team_history, team2_name)
     venue_reference = latest_matchup_row(match_dataset, team1_name, team2_name)
-    team1_score, team1_wickets = estimate_team_score(
-        batting_row=team1_latest,
-        bowling_row=team2_latest,
-        venue_reference=venue_reference,
-        batting_key_player=request.key_player_team1,
-    )
-    team2_score, team2_wickets = estimate_team_score(
-        batting_row=team2_latest,
-        bowling_row=team1_latest,
-        venue_reference=venue_reference,
-        batting_key_player=request.key_player_team2,
-    )
+    team1_is_chasing = toss_winner == team1_name
+    team2_is_chasing = toss_winner == team2_name
 
-    if predicted_winner == team1_name and team2_score >= team1_score:
-        team2_score = max(120, team1_score - random.randint(6, 18))
-    if predicted_winner == team2_name and team1_score >= team2_score:
-        team1_score = max(120, team2_score - random.randint(6, 18))
+    if team1_is_chasing:
+        team2_score, team2_wickets = estimate_team_score(
+            batting_row=team2_latest,
+            bowling_row=team1_latest,
+            venue_reference=venue_reference,
+            batting_key_player=request.key_player_team2,
+            is_chasing=False,
+        )
+        team1_score, team1_wickets = estimate_team_score(
+            batting_row=team1_latest,
+            bowling_row=team2_latest,
+            venue_reference=venue_reference,
+            batting_key_player=request.key_player_team1,
+            is_chasing=True,
+            chase_target=team2_score + 1,
+        )
+    else:
+        team1_score, team1_wickets = estimate_team_score(
+            batting_row=team1_latest,
+            bowling_row=team2_latest,
+            venue_reference=venue_reference,
+            batting_key_player=request.key_player_team1,
+            is_chasing=False,
+        )
+        team2_score, team2_wickets = estimate_team_score(
+            batting_row=team2_latest,
+            bowling_row=team1_latest,
+            venue_reference=venue_reference,
+            batting_key_player=request.key_player_team2,
+            is_chasing=True,
+            chase_target=team1_score + 1,
+        )
+
+    win_gap = int(round(clamp(abs(probability_team1 - 0.5) * 60.0, 4.0, 18.0)))
+    if predicted_winner == team1_name:
+        if team1_is_chasing:
+            team1_score = max(team1_score, team2_score + 1)
+            team1_score = min(215, team2_score + win_gap)
+        else:
+            team2_score = min(team2_score, team1_score - win_gap)
+    else:
+        if team2_is_chasing:
+            team2_score = max(team2_score, team1_score + 1)
+            team2_score = min(215, team1_score + win_gap)
+        else:
+            team1_score = min(team1_score, team2_score - win_gap)
+
+    team1_score = int(clamp(team1_score, 125.0, 215.0))
+    team2_score = int(clamp(team2_score, 125.0, 215.0))
 
     winner_key = "team1" if predicted_winner == team1_name else "team2"
     probability = probability_team1 if winner_key == "team1" else probability_team2
@@ -686,12 +831,9 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
 def interactive_predict() -> None:
     """Ask the user for two teams and print the predicted winner."""
 
-    if not MODEL_OUTPUT_PATH.exists():
-        print("Trained model not found. Training a fresh model first...")
-        train_model()
-
     payload = load_saved_model()
     team_history = load_team_history()
+    match_dataset = load_match_dataset()
     team_lookup = build_team_lookup(team_history)
     available_teams = sorted(team_lookup.values())
 
@@ -706,10 +848,17 @@ def interactive_predict() -> None:
     if team1_name == team2_name:
         raise ValueError("Please choose two different teams.")
 
+    toss_input = input(f"Enter toss winner ({team1_name}/{team2_name}): ").strip()
+    toss_winner = resolve_team_name(toss_input or team1_name, team_lookup)
+    if toss_winner not in {team1_name, team2_name}:
+        raise ValueError("Toss winner must be one of the selected teams.")
+
     feature_frame = build_prediction_feature_row(
         team_history=team_history,
+        match_dataset=match_dataset,
         team1_name=team1_name,
         team2_name=team2_name,
+        toss_winner=toss_winner,
         feature_columns=payload["feature_columns"],
     )
     scaler_mean = pd.Series(payload["scaler_mean"], dtype=float)
@@ -723,6 +872,7 @@ def interactive_predict() -> None:
     predicted_winner = team1_name if probability_team1 >= 0.5 else team2_name
 
     print()
+    print(f"Toss winner: {toss_winner}")
     print(f"Prediction: {predicted_winner}")
     print(f"{team1_name} win probability: {probability_team1:.3f}")
     print(f"{team2_name} win probability: {probability_team2:.3f}")
