@@ -1,27 +1,42 @@
-function resolveApiBaseUrl() {
+function resolveApiBaseUrls() {
   const configured = import.meta.env.VITE_API_BASE_URL?.trim();
   if (configured) {
-    return configured.replace(/\/+$/, "");
+    return [configured.replace(/\/+$/, "")];
   }
-  return import.meta.env.DEV ? "" : "/api";
+
+  if (import.meta.env.DEV) {
+    return [""];
+  }
+
+  return ["/api", ""];
 }
 
-const API_BASE_URL = resolveApiBaseUrl();
+const API_BASE_URLS = resolveApiBaseUrls();
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers ?? {}),
-    },
-    ...options,
-  });
+  let lastError = null;
 
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(payload.detail ?? "Request failed.");
+  for (const baseUrl of API_BASE_URLS) {
+    const response = await fetch(`${baseUrl}${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers ?? {}),
+      },
+      ...options,
+    });
+
+    const payload = await response.json().catch(() => ({}));
+    if (response.ok) {
+      return payload;
+    }
+
+    lastError = new Error(payload.detail ?? "Request failed.");
+    if (response.status !== 404) {
+      throw lastError;
+    }
   }
-  return payload;
+
+  throw lastError ?? new Error("Request failed.");
 }
 
 export function getMetadata() {
