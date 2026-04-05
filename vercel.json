@@ -11,16 +11,12 @@
   },
   "rewrites": [
     {
-      "source": "/health",
-      "destination": "/api/health"
+      "source": "/api/(.*)",
+      "destination": "/api/$1.py"
     },
     {
-      "source": "/metadata",
-      "destination": "/api/metadata"
-    },
-    {
-      "source": "/predict",
-      "destination": "/api/predict"
+      "source": "/(.*)",
+      "destination": "/frontend/dist/index.html"
     }
   ]
 }
