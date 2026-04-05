@@ -4,39 +4,26 @@ function resolveApiBaseUrls() {
     return [configured.replace(/\/+$/, "")];
   }
 
-  if (import.meta.env.DEV) {
-    return [""];
-  }
-
-  return ["/api", ""];
+  return ["/api"];
 }
 
 const API_BASE_URLS = resolveApiBaseUrls();
 
 async function request(path, options = {}) {
-  let lastError = null;
+  const baseUrl = API_BASE_URLS[0];
+  const response = await fetch(`${baseUrl}${path}`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers ?? {}),
+    },
+    ...options,
+  });
 
-  for (const baseUrl of API_BASE_URLS) {
-    const response = await fetch(`${baseUrl}${path}`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(options.headers ?? {}),
-      },
-      ...options,
-    });
-
-    const payload = await response.json().catch(() => ({}));
-    if (response.ok) {
-      return payload;
-    }
-
-    lastError = new Error(payload.detail ?? "Request failed.");
-    if (response.status !== 404) {
-      throw lastError;
-    }
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(payload.detail ?? "Request failed.");
   }
-
-  throw lastError ?? new Error("Request failed.");
+  return payload;
 }
 
 export function getMetadata() {
