@@ -2,6 +2,8 @@
 
 This repository contains a time-aware data pipeline for building one-row-per-match IPL training data for a micrograd-style neural network.
 
+The project now prefers `backend/data/IPL.csv` as the primary historical source because it provides unified ball-by-ball IPL coverage from 2008 through 2025. The older split files remain as fallback inputs only.
+
 Pipeline flow:
 
 1. Raw CSV tables from `backend/data`
@@ -24,14 +26,62 @@ The current historical dataset covers IPL seasons 2008 through 2016. The rebuilt
 - `team_history_features.csv`: one row per team per match with shifted historical features
 - `match_dataset.csv`: one row per decided match with both teams and context joined together
 - `micrograd_model_input.csv`: numeric model-ready feature matrix with the `target` column
+- `ball_by_ball_2008_2025.csv`: canonical expanded ball-by-ball export
+- `matches_2008_2025.csv`: canonical expanded match-level export
 - `data_audit.json`: schema and missing-value audit
 - `validation_report.json`: logical data integrity checks
 - `feature_manifest.json`: final dataset structure and feature list
+- `dataset_coverage.json`: season/date coverage summary
+- `expansion_status.json`: whether the repo already covers the requested range
+- `api_ingestion_plan.json`: fallback ingestion design for future source gaps
 
 ## Running the pipeline
 
 ```bash
 python backend/src/maindataset.py
+```
+
+## Prediction API
+
+Run the backend API with:
+
+```bash
+uvicorn backend.web.app:app --reload
+```
+
+Available endpoints:
+
+- `GET /health`
+- `GET /metadata`
+- `POST /predict`
+
+Example payload:
+
+```json
+{
+  "team1": "Chennai Super Kings",
+  "team2": "Mumbai Indians",
+  "toss_winner": "Mumbai Indians",
+  "user_predicted_score_team1": 180,
+  "user_predicted_score_team2": 170,
+  "key_player_team1": "MS Dhoni",
+  "key_player_team2": "Jasprit Bumrah"
+}
+```
+
+## Frontend
+
+Install and run the frontend from the `frontend` directory:
+
+```bash
+npm install
+npm run dev
+```
+
+If needed, point the UI to a different backend with:
+
+```bash
+VITE_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 ## Modeling notes

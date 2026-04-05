@@ -14,12 +14,13 @@ def add_ball_outcome_flags(balls: pd.DataFrame) -> pd.DataFrame:
     flagged = balls.copy()
     flagged["is_dot_ball"] = (flagged["total_runs"] == 0).astype(int)
     flagged["is_boundary"] = flagged["batsman_scored"].isin([4, 6]).astype(int)
-    flagged["phase"] = pd.cut(
-        flagged["over_id"],
-        bins=[0, 6, 15, 20],
-        labels=["powerplay", "middle", "death"],
-        include_lowest=True,
-    )
+    if "over_phase" not in flagged.columns:
+        flagged["over_phase"] = pd.cut(
+            flagged["over_id"],
+            bins=[0, 6, 15, 20],
+            labels=["powerplay", "middle", "death"],
+            include_lowest=True,
+        )
     return flagged
 
 
@@ -31,7 +32,7 @@ def build_phase_run_rates(balls: pd.DataFrame) -> pd.DataFrame:
 
     phase_totals = (
         primary_innings.groupby(
-            ["match_id", "batting_team_id", "phase"],
+            ["match_id", "batting_team_id", "over_phase"],
             observed=True,
         )
         .agg(
@@ -45,7 +46,7 @@ def build_phase_run_rates(balls: pd.DataFrame) -> pd.DataFrame:
     )
     phase_rates = phase_totals.pivot_table(
         index=["match_id", "batting_team_id"],
-        columns="phase",
+        columns="over_phase",
         values="phase_run_rate",
         fill_value=0.0,
         observed=True,

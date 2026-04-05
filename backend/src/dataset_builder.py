@@ -128,3 +128,22 @@ def build_feature_manifest(match_dataset: pd.DataFrame, features: pd.DataFrame) 
         "identifier_columns": ["match_id", "match_date"],
         "feature_columns": list(features.columns),
     }
+
+
+def build_dataset_coverage_summary(
+    matches_2008_2025: pd.DataFrame,
+    balls_2008_2025: pd.DataFrame,
+) -> dict[str, Any]:
+    """Summarize expanded canonical dataset coverage."""
+
+    match_years = matches_2008_2025["season_year"].dropna()
+    return {
+        "match_rows": int(matches_2008_2025.shape[0]),
+        "ball_rows": int(balls_2008_2025.shape[0]),
+        "unique_matches": int(matches_2008_2025["match_id"].nunique()),
+        "season_years_present": sorted(match_years.astype(int).unique().tolist()),
+        "date_range": {
+            "start": matches_2008_2025["match_date"].min().date().isoformat(),
+            "end": matches_2008_2025["match_date"].max().date().isoformat(),
+        },
+    }
