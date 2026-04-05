@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend.main import (
@@ -18,9 +15,6 @@ from backend.main import (
     predict_match_outcome,
     shortlisted_teams,
 )
-
-WEB_DIR = Path(__file__).resolve().parent
-STATIC_DIR = WEB_DIR / "static"
 
 class PredictPayload(BaseModel):
     team1: str = Field(..., min_length=1)
@@ -40,12 +34,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/")
-def root() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+def root() -> dict[str, str]:
+    return {"message": "IPL Predictor API is running. Use the React frontend from /frontend or a deployed app."}
 
 
 @app.get("/health")
