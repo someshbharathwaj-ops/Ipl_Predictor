@@ -16,9 +16,12 @@ venv/
 # Generated artifacts
 backend/Processed/*
 !backend/Processed/.gitkeep
+!backend/Processed/team_history_features.csv
+!backend/Processed/match_dataset.csv
 backend/models/*
 !backend/models/.gitkeep
 *.pkl
+!backend/models/model.pkl
 *.h5
 
 # Jupyter
