@@ -1,0 +1,361 @@
+:root {
+  color: #f5fbff;
+  background:
+    radial-gradient(circle at top left, rgba(39, 245, 209, 0.15), transparent 28%),
+    radial-gradient(circle at top right, rgba(255, 123, 84, 0.18), transparent 24%),
+    linear-gradient(160deg, #07111f 0%, #091a30 52%, #050a14 100%);
+  font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: inherit;
+  color: inherit;
+}
+
+.shell {
+  padding: 28px;
+}
+
+.hero,
+.panel {
+  background: linear-gradient(180deg, rgba(16, 26, 45, 0.9), rgba(10, 18, 33, 0.8));
+  border: 1px solid rgba(109, 220, 255, 0.12);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28), 0 0 30px rgba(39, 245, 209, 0.08);
+  backdrop-filter: blur(14px);
+  border-radius: 30px;
+}
+
+.grid-noise {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+.hero {
+  padding: 38px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: end;
+}
+
+.eyebrow {
+  color: rgba(151, 231, 248, 0.85);
+  letter-spacing: 0.45em;
+  font-size: 12px;
+  margin: 0 0 16px;
+}
+
+.hero h1 {
+  font-size: clamp(48px, 6vw, 88px);
+  line-height: 0.98;
+  margin: 0;
+  max-width: 960px;
+}
+
+.subcopy {
+  max-width: 860px;
+  color: #c4cfdd;
+  font-size: 19px;
+  line-height: 1.55;
+}
+
+.launch-button {
+  border: 0;
+  cursor: pointer;
+  border-radius: 999px;
+  padding: 22px 36px;
+  color: #062131;
+  background: linear-gradient(90deg, #27f5d1 0%, #24c1a8 100%);
+  text-transform: uppercase;
+  letter-spacing: 0.35em;
+  font-weight: 700;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 1.15fr 0.85fr;
+  gap: 28px;
+  margin-top: 28px;
+}
+
+.left-column,
+.right-column {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.selector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.selector-header h2,
+.panel h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.selector-header span {
+  color: rgba(151, 231, 248, 0.85);
+  letter-spacing: 0.35em;
+  font-size: 12px;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.team-card {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(5, 15, 29, 0.8);
+  border-radius: 24px;
+  padding: 16px;
+  color: white;
+  cursor: pointer;
+  text-align: left;
+  transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.team-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(39, 245, 209, 0.6);
+}
+
+.team-card.selected {
+  border-color: rgba(39, 245, 209, 0.95);
+  box-shadow: 0 0 25px rgba(39, 245, 209, 0.22);
+}
+
+.team-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 14px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.setup-panel,
+.result-panel,
+.scoreboard-panel {
+  padding: 28px;
+}
+
+.form-grid,
+.slider-grid,
+.prediction-split,
+.insight-grid,
+.scoreboard-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.form-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-top: 24px;
+}
+
+.slider-grid,
+.prediction-split,
+.insight-grid,
+.scoreboard-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+label span {
+  display: block;
+  margin-bottom: 10px;
+  color: #c6d2de;
+  font-size: 15px;
+}
+
+select,
+input[type="range"] {
+  width: 100%;
+}
+
+select {
+  background: rgba(2, 9, 25, 0.9);
+  color: #f4fbff;
+  border: 1px solid rgba(39, 245, 209, 0.18);
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+
+.slider-card,
+.split-card,
+.insight-card,
+.score-line,
+.winner-card {
+  background: rgba(5, 15, 29, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 18px;
+}
+
+.neon-border {
+  border-color: rgba(39, 245, 209, 0.28);
+  box-shadow: 0 0 26px rgba(39, 245, 209, 0.12);
+}
+
+.slider-head,
+.probability-label,
+.winner-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-eyebrow {
+  color: #93a5ba;
+  font-size: 12px;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+}
+
+.accent {
+  color: #9df9ea;
+}
+
+.placeholder,
+.scoreboard-placeholder {
+  margin-top: 26px;
+  padding: 38px;
+  border-radius: 24px;
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  color: #ced6e2;
+  text-align: center;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.thinking {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(39, 245, 209, 0.3);
+  color: #a4fff0;
+  letter-spacing: 0.25em;
+  font-size: 12px;
+}
+
+.winner-name {
+  margin-top: 10px;
+  font-size: 36px;
+  font-weight: 700;
+}
+
+.confidence-badge {
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #d6e2eb;
+}
+
+.probability-group {
+  margin-top: 22px;
+  display: grid;
+  gap: 16px;
+}
+
+.bar-shell {
+  height: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  width: 6%;
+  border-radius: 999px;
+  transition: width 0.8s ease;
+}
+
+.bar-fill.cyan {
+  background: linear-gradient(90deg, #27f5d1, #19c9b9);
+}
+
+.bar-fill.ember {
+  background: linear-gradient(90deg, #ff7b54, #ff5b8a);
+}
+
+.score-text {
+  margin-top: 12px;
+  font-size: 44px;
+  font-weight: 800;
+}
+
+.score-text.gold {
+  color: #ffd166;
+}
+
+.score-text.green {
+  color: #9ff7d4;
+}
+
+.error-banner {
+  margin-top: 18px;
+  border-radius: 22px;
+  padding: 14px 18px;
+  background: rgba(255, 61, 96, 0.14);
+  border: 1px solid rgba(255, 61, 96, 0.35);
+  color: #ffd8e1;
+}
+
+@media (max-width: 1200px) {
+  .layout {
+    grid-template-columns: 1fr;
+  }
+
+  .team-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .form-grid,
+  .slider-grid,
+  .prediction-split,
+  .insight-grid,
+  .scoreboard-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .shell {
+    padding: 16px;
+  }
+
+  .hero {
+    padding: 24px;
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .hero h1 {
+    font-size: 42px;
+  }
+
+  .team-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

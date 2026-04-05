@@ -50,6 +50,18 @@ TEAM_SHORTLIST = [
     "Gujarat Titans",
     "Lucknow Super Giants",
 ]
+KEY_PLAYER_SHORTLIST = {
+    "Chennai Super Kings": ["MS Dhoni", "Sanju samson", "Ruturaj Gaikwad", "Ayush Mathare", "Noor Ahemd" , "Khaleel ahemad"],
+    "Mumbai Indians": ["Rohit Sharma", "Jasprit Bumrah", "Suryakumar Yadav", "Jasprit Bumrah", "Hardik Pandya"],
+    "Royal Challengers Bengaluru": ["Virat Kohli", "Hazlewood", "Duffy", "Phil salt", "Rajat Patidar","jitesh sharma","Krunal pandya"],
+    "Kolkata Knight Riders": ["Finn Alen", "Sunil Narine", "Rahuvanshi", "varun", "Rinku Singh"],
+    "Rajasthan Royals": ["Vaibhav", "Riyan parag", "Yashasvi Jaiswal", "Archer", "Burger"],
+    "Delhi Capitals": ["KL rahul", "Rizvi", "Axar Patel", "Stubbs", "Kuldeep Yadav","Ingidi"],
+    "Sunrisers Hyderabad": ["Pat Cummins", "Heinrich Klaasen", "Travis Head", "Abishek", "Unadkat"],
+    "Punjab Kings": ["Shreyas Iyer", "Marco jansen", "Arshdeep Singh", "Prabhsimran", "Arya"],
+    "Gujarat Titans": ["Shubman Gill", "Rashid Khan", "Sai Sudharsan", "Rabada", "Thevatiya"],
+    "Lucknow Super Giants": ["Rishabh pant", "Nicholas Pooran", "Adam markram", "Shami", "Mohsin Khan"],
+}
 NEUTRAL_CONTEXT_DEFAULTS = {
     "team1_is_toss_winner": 0.0,
     "team2_is_toss_winner": 0.0,
@@ -128,35 +140,9 @@ def load_match_dataset(path: Path = MATCH_DATASET_PATH) -> pd.DataFrame:
 
 @functools.lru_cache(maxsize=1)
 def load_key_players_by_team(path: Path = IPL_SOURCE_PATH) -> dict[str, list[str]]:
-    """Build a lightweight team-to-player shortlist from the IPL source file."""
+    """Return fast key-player options for the UI without blocking metadata."""
 
-    if not path.exists():
-        return {}
-
-    frame = pd.read_csv(
-        path,
-        usecols=["batting_team", "batter", "bowler", "player_of_match"],
-        low_memory=False,
-    )
-    player_scores: dict[str, dict[str, int]] = {}
-    for _, row in frame.iterrows():
-        team = row.get("batting_team")
-        if pd.isna(team):
-            continue
-        team = str(team)
-        bucket = player_scores.setdefault(team, {})
-        for column, weight in (("batter", 3), ("bowler", 2), ("player_of_match", 5)):
-            player = row.get(column)
-            if pd.isna(player):
-                continue
-            player_name = str(player)
-            bucket[player_name] = bucket.get(player_name, 0) + weight
-
-    shortlisted: dict[str, list[str]] = {}
-    for team, scores in player_scores.items():
-        players = sorted(scores.items(), key=lambda item: (-item[1], item[0]))
-        shortlisted[team] = [name for name, _ in players[:12]]
-    return shortlisted
+    return KEY_PLAYER_SHORTLIST.copy()
 
 
 def chronological_split(
