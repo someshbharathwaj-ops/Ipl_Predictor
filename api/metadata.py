@@ -1,18 +1,13 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import json
 
 from backend.web.api_handlers import get_metadata_payload
 
-app = FastAPI()
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
 
-
-@app.get("/")
-def metadata() -> dict[str, object]:
-    return get_metadata_payload()
+def handler(request):
+    print("metadata handler invoked")
+    payload = get_metadata_payload()
+    return {
+        "statusCode": 200,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(payload),
+    }
