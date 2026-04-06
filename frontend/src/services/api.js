@@ -1,17 +1,8 @@
-function resolveApiBaseUrls() {
-  const configured = import.meta.env.VITE_API_BASE_URL?.trim();
-  if (configured) {
-    return [configured.replace(/\/+$/, "")];
-  }
-
-  return ["/api"];
-}
-
-const API_BASE_URLS = resolveApiBaseUrls();
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/+$/, "") || "/api";
 
 async function request(path, options = {}) {
-  const baseUrl = API_BASE_URLS[0];
-  const response = await fetch(`${baseUrl}${path}`, {
+  const response = await fetch(`${API_BASE}${path}`, {
     headers: {
       "Content-Type": "application/json",
       ...(options.headers ?? {}),

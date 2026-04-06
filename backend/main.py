@@ -462,8 +462,11 @@ def canonicalize_team_name(name: str) -> str:
 def build_team_lookup(team_history: pd.DataFrame) -> dict[str, str]:
     """Create a case-insensitive mapping of available team names."""
 
+    team_lookup: dict[str, str] = {}
     unique_teams = sorted(team_history["team_id"].dropna().astype(str).unique().tolist())
-    return {canonicalize_team_name(team): team for team in unique_teams}
+    for team_name in unique_teams:
+        team_lookup[canonicalize_team_name(team_name)] = team_name
+    return team_lookup
 
 
 def shortlisted_teams(team_history: pd.DataFrame) -> list[str]:
@@ -485,11 +488,11 @@ def resolve_team_name(user_input: str, team_lookup: dict[str, str]) -> str:
     if normalized in team_lookup:
         return team_lookup[normalized]
 
-    partial_matches = [
-        canonical
-        for key, canonical in team_lookup.items()
-        if normalized in key or key in normalized
-    ]
+    partial_matches = []
+    for key, canonical in team_lookup.items():
+        if normalized in key or key in normalized:
+            partial_matches.append(canonical)
+
     if len(partial_matches) == 1:
         return partial_matches[0]
     raise ValueError("Team name not recognized. Please use a team from the processed dataset.")
@@ -543,39 +546,54 @@ def build_prediction_feature_row(
 ) -> pd.DataFrame:
     """Construct a model-ready single-row feature frame for two teams."""
 
+    # get the latest rows we need
     team1_latest = latest_team_row(team_history, team1_name)
     team2_latest = latest_team_row(team_history, team2_name)
     team1_h2h = latest_head_to_head_row(team_history, team1_name, team2_name)
     team2_h2h = latest_head_to_head_row(team_history, team2_name, team1_name)
     matchup_row = latest_matchup_row(match_dataset, team1_name, team2_name)
-    toss_winner = toss_winner.strip()
-    toss_winner_is_team1 = int(toss_winner == team1_name)
-    toss_winner_is_team2 = int(toss_winner == team2_name)
 
+    # check who won the toss
+    clean_toss_winner = toss_winner.strip()
+    toss_winner_is_team1 = int(clean_toss_winner == team1_name)
+    toss_winner_is_team2 = int(clean_toss_winner == team2_name)
+
+    # build one feature row in the same order used during training
     row: dict[str, float] = {}
     for column in feature_columns:
         if column.startswith("team1_"):
+            source_row = team1_latest
             source_column = column.removeprefix("team1_")
-            value = team1_latest.get(source_column, 0.0)
-            row[column] = float(value) if pd.notna(value) else 0.0
-        elif column.startswith("team2_"):
-            source_column = column.removeprefix("team2_")
-            value = team2_latest.get(source_column, 0.0)
-            row[column] = float(value) if pd.notna(value) else 0.0
-        elif column.startswith("delta_"):
-            metric = column.removeprefix("delta_")
-            left = team1_latest.get(metric, 0.0)
-            right = team2_latest.get(metric, 0.0)
-            row[column] = float(left) - float(right)
-        else:
-            row[column] = 0.0
+            default_value = 0.0
+            value = source_row.get(source_column, default_value)
+            row[column] = float(value) if pd.notna(value) else default_value
+            continue
 
+        if column.startswith("team2_"):
+            source_row = team2_latest
+            source_column = column.removeprefix("team2_")
+            default_value = 0.0
+            value = source_row.get(source_column, default_value)
+            row[column] = float(value) if pd.notna(value) else default_value
+            continue
+
+        if column.startswith("delta_"):
+            metric = column.removeprefix("delta_")
+            left_value = float(team1_latest.get(metric, 0.0))
+            right_value = float(team2_latest.get(metric, 0.0))
+            row[column] = left_value - right_value
+            continue
+
+        row[column] = 0.0
+
+    # if a past matchup exists, use it for any matching wide features
     if matchup_row is not None:
         for column in feature_columns:
             if column in matchup_row.index:
                 value = matchup_row[column]
                 row[column] = float(value) if pd.notna(value) else row.get(column, 0.0)
 
+    # add head-to-head values
     if "team1_head_to_head_matches_before" in row and team1_h2h is not None:
         row["team1_head_to_head_matches_before"] = float(team1_h2h["head_to_head_matches_before"])
     if "team1_head_to_head_win_rate_before_match" in row and team1_h2h is not None:
@@ -585,6 +603,7 @@ def build_prediction_feature_row(
     if "team2_head_to_head_win_rate_before_match" in row and team2_h2h is not None:
         row["team2_head_to_head_win_rate_before_match"] = float(team2_h2h["head_to_head_win_rate_before_match"])
 
+    # recalculate delta columns from the two team rows
     for metric in DELTA_METRICS:
         delta_column = f"delta_{metric}"
         team1_column = f"team1_{metric}"
@@ -592,10 +611,12 @@ def build_prediction_feature_row(
         if delta_column in row and team1_column in row and team2_column in row:
             row[delta_column] = row[team1_column] - row[team2_column]
 
+    # fill neutral match context defaults
     for column, default_value in NEUTRAL_CONTEXT_DEFAULTS.items():
         if column in row:
             row[column] = default_value
 
+    # update toss-related columns
     if "team1_is_toss_winner" in row:
         row["team1_is_toss_winner"] = float(toss_winner_is_team1)
     if "team2_is_toss_winner" in row:
@@ -715,19 +736,23 @@ def derive_confidence(probability: float) -> str:
 def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
     """Produce the backend response payload for a match simulation request."""
 
+    # load the saved model and processed data
     payload = load_saved_model()
     team_history = load_team_history()
     match_dataset = load_match_dataset()
     team_lookup = build_team_lookup(team_history)
 
+    # clean the selected team names
     team1_name = resolve_team_name(request.team1, team_lookup)
     team2_name = resolve_team_name(request.team2, team_lookup)
     toss_winner = resolve_team_name(request.toss_winner, team_lookup)
+
     if team1_name == team2_name:
         raise ValueError("Please choose two different teams.")
     if toss_winner not in {team1_name, team2_name}:
         raise ValueError("Toss winner must be one of the selected teams.")
 
+    # prepare input for model
     feature_frame = build_prediction_feature_row(
         team_history=team_history,
         match_dataset=match_dataset,
@@ -736,19 +761,24 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
         toss_winner=toss_winner,
         feature_columns=payload["feature_columns"],
     )
+
     scaler_mean = pd.Series(payload["scaler_mean"], dtype=float)
     scaler_std = pd.Series(payload["scaler_std"], dtype=float)
     scaled_features = transform_with_scaler(feature_frame, scaler_mean, scaler_std)
+
+    # run prediction
     probability_team1 = predict_probability_from_payload(payload, scaled_features.iloc[0].tolist())
     probability_team2 = 1.0 - probability_team1
     predicted_winner = team1_name if probability_team1 >= 0.5 else team2_name
 
+    # load the latest form rows for score projection
     team1_latest = latest_team_row(team_history, team1_name)
     team2_latest = latest_team_row(team_history, team2_name)
     venue_reference = latest_matchup_row(match_dataset, team1_name, team2_name)
     team1_is_chasing = toss_winner == team1_name
     team2_is_chasing = toss_winner == team2_name
 
+    # estimate both innings
     if team1_is_chasing:
         team2_score, team2_wickets = estimate_team_score(
             batting_row=team2_latest,
@@ -782,6 +812,7 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
             chase_target=team1_score + 1,
         )
 
+    # adjust the final margin so the scoreline matches the predicted winner
     win_gap = int(round(clamp(abs(probability_team1 - 0.5) * 60.0, 4.0, 18.0)))
     if predicted_winner == team1_name:
         if team1_is_chasing:
@@ -799,6 +830,7 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
     team1_score = int(clamp(team1_score, 125.0, 215.0))
     team2_score = int(clamp(team2_score, 125.0, 215.0))
 
+    # build the API response
     winner_key = "team1" if predicted_winner == team1_name else "team2"
     probability = probability_team1 if winner_key == "team1" else probability_team2
     ai_agrees = (
@@ -831,6 +863,7 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
 def interactive_predict() -> None:
     """Ask the user for two teams and print the predicted winner."""
 
+    # load model and match data
     payload = load_saved_model()
     team_history = load_team_history()
     match_dataset = load_match_dataset()
@@ -840,6 +873,7 @@ def interactive_predict() -> None:
     print("Available teams:")
     print(", ".join(available_teams))
 
+    # read user input
     team1_input = input("Enter team 1: ").strip()
     team2_input = input("Enter team 2: ").strip()
     team1_name = resolve_team_name(team1_input, team_lookup)
@@ -853,6 +887,7 @@ def interactive_predict() -> None:
     if toss_winner not in {team1_name, team2_name}:
         raise ValueError("Toss winner must be one of the selected teams.")
 
+    # prepare input for model
     feature_frame = build_prediction_feature_row(
         team_history=team_history,
         match_dataset=match_dataset,
@@ -861,9 +896,12 @@ def interactive_predict() -> None:
         toss_winner=toss_winner,
         feature_columns=payload["feature_columns"],
     )
+
     scaler_mean = pd.Series(payload["scaler_mean"], dtype=float)
     scaler_std = pd.Series(payload["scaler_std"], dtype=float)
     scaled_features = transform_with_scaler(feature_frame, scaler_mean, scaler_std)
+
+    # run prediction
     probability_team1 = predict_probability_from_payload(
         payload,
         scaled_features.iloc[0].tolist(),
