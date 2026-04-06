@@ -2,7 +2,7 @@
 
 This repository packages the IPL predictor as one React frontend and one unified prediction API. The frontend lives in `frontend/`, and every runtime backend endpoint is standardized under `/api`.
 
-## Final Structure
+## Structure
 
 - `frontend/`: the only frontend source of truth
 - `frontend/src/main.jsx`: React entry point
@@ -26,6 +26,12 @@ The React frontend calls these endpoints through one consistent base URL. In dev
 
 ## Local Development
 
+Run every command from the repository root:
+
+```bash
+cd IPL_Predictor
+```
+
 Install backend dependencies:
 
 ```bash
@@ -42,8 +48,13 @@ npm install
 Run the backend:
 
 ```bash
-uvicorn backend.web.app:app --host 127.0.0.1 --port 8000
+python -m uvicorn backend.web.app:app --host 127.0.0.1 --port 8000
 ```
+
+Important:
+
+- start the backend from the repository root, not from `backend/`
+- if you run the command inside `backend/`, Python will fail with `ModuleNotFoundError: No module named 'backend'`
 
 Run the frontend:
 
@@ -58,6 +69,12 @@ Open:
 http://127.0.0.1:5173
 ```
 
+Backend health check:
+
+```text
+http://127.0.0.1:8000/api/health
+```
+
 ## Environment Variables
 
 Frontend:
@@ -67,7 +84,7 @@ Frontend:
   - defaults to `/api`
   - set this only if the frontend must call a different backend origin
 
-See [frontend/.env.example](c:/Users/SOMESH%20BHARATHWAJ/Documents/GitHub/IPL_Predictor/frontend/.env.example).
+See [frontend/.env.example](/c:/Users/SOMESH%20BHARATHWAJ/Documents/GitHub/IPL_Predictor/frontend/.env.example).
 
 ## Deployment
 
@@ -79,7 +96,7 @@ Expected deployment behavior:
 
 - Vercel builds the React app from `frontend/`
 - Vercel exposes Python API functions from `api/`
-- rewrites in `vercel.json` keep `/health`, `/metadata`, and `/predict` aligned with `/api/*`
+- rewrites in `vercel.json` keep `/api/*` routed to the Python functions
 
 ### Generic Python Hosting
 
@@ -94,14 +111,13 @@ uvicorn backend.web.app:app --host 0.0.0.0 --port $PORT
 Frontend build:
 
 ```bash
-cd frontend
-npm run build
+npm --prefix frontend run build
 ```
 
 Backend smoke tests:
 
 ```bash
-python -m unittest backend.tests.test_api_smoke
+python -m pytest backend/tests/test_api_smoke.py
 ```
 
 ## Data And Model Notes
