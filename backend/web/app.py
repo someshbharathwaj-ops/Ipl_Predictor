@@ -22,26 +22,36 @@ app.add_middleware(
     allow_headers=["*"],
 )
 api_router = APIRouter(prefix="/api")
+legacy_router = APIRouter()
 
 
 @app.get("/")
 def root() -> dict[str, str]:
-    return {"message": "IPL Predictor API is running. Use /api/health, /api/metadata, and /api/predict."}
+    return {
+        "message": (
+            "IPL Predictor API is running. Use /api/health, /api/metadata, and /api/predict "
+            "(legacy aliases /health, /metadata, and /predict are also available)."
+        )
+    }
 
 
 @api_router.get("/health")
+@legacy_router.get("/health")
 def health() -> dict[str, str]:
     return get_health_payload()
 
 
 @api_router.get("/metadata")
+@legacy_router.get("/metadata")
 def metadata() -> dict[str, object]:
     return get_metadata_payload()
 
 
 @api_router.post("/predict")
+@legacy_router.post("/predict")
 def predict(payload: PredictPayload) -> dict[str, object]:
     return get_prediction_payload(payload)
 
 
 app.include_router(api_router)
+app.include_router(legacy_router)
