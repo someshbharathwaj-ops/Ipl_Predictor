@@ -43,6 +43,7 @@ dist/
 .mypy_cache/
 htmlcov/
 .coverage
+pytest-cache-files-*/
 
 # Temporary files
 *.tmp
