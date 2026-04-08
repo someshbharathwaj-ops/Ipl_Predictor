@@ -58,12 +58,27 @@ TEAM_SHORTLIST = [
     "Lucknow Super Giants",
 ]
 KEY_PLAYER_SHORTLIST = {
-    "Chennai Super Kings": ["MS Dhoni", "Sanju samson", "Ruturaj Gaikwad", "Ayush Mathare", "Noor Ahemd" , "Khaleel ahemad"],
+    "Chennai Super Kings": [
+        "MS Dhoni",
+        "Sanju samson",
+        "Ruturaj Gaikwad",
+        "Ayush Mathare",
+        "Noor Ahemd",
+        "Khaleel ahemad",
+    ],
     "Mumbai Indians": ["Rohit Sharma", "Jasprit Bumrah", "Suryakumar Yadav", "Jasprit Bumrah", "Hardik Pandya"],
-    "Royal Challengers Bengaluru": ["Virat Kohli", "Hazlewood", "Duffy", "Phil salt", "Rajat Patidar","jitesh sharma","Krunal pandya"],
+    "Royal Challengers Bengaluru": [
+        "Virat Kohli",
+        "Hazlewood",
+        "Duffy",
+        "Phil salt",
+        "Rajat Patidar",
+        "jitesh sharma",
+        "Krunal pandya",
+    ],
     "Kolkata Knight Riders": ["Finn Alen", "Sunil Narine", "Rahuvanshi", "varun", "Rinku Singh"],
     "Rajasthan Royals": ["Vaibhav", "Riyan parag", "Yashasvi Jaiswal", "Archer", "Burger"],
-    "Delhi Capitals": ["KL rahul", "Rizvi", "Axar Patel", "Stubbs", "Kuldeep Yadav","Ingidi"],
+    "Delhi Capitals": ["KL rahul", "Rizvi", "Axar Patel", "Stubbs", "Kuldeep Yadav", "Ingidi"],
     "Sunrisers Hyderabad": ["Pat Cummins", "Heinrich Klaasen", "Travis Head", "Abishek", "Unadkat"],
     "Punjab Kings": ["Shreyas Iyer", "Marco jansen", "Arshdeep Singh", "Prabhsimran", "Arya"],
     "Gujarat Titans": ["Shubman Gill", "Rashid Khan", "Sai Sudharsan", "Rabada", "Thevatiya"],
@@ -498,6 +513,15 @@ def resolve_team_name(user_input: str, team_lookup: dict[str, str]) -> str:
     raise ValueError("Team name not recognized. Please use a team from the processed dataset.")
 
 
+def read_float_value(row: pd.Series, column: str, default: float = 0.0) -> float:
+    """Read one numeric value safely."""
+
+    value = row.get(column, default)
+    if pd.isna(value):
+        return default
+    return float(value)
+
+
 def latest_team_row(team_history: pd.DataFrame, team_name: str) -> pd.Series:
     """Get the latest available historical feature row for a franchise."""
 
@@ -562,25 +586,19 @@ def build_prediction_feature_row(
     row: dict[str, float] = {}
     for column in feature_columns:
         if column.startswith("team1_"):
-            source_row = team1_latest
             source_column = column.removeprefix("team1_")
-            default_value = 0.0
-            value = source_row.get(source_column, default_value)
-            row[column] = float(value) if pd.notna(value) else default_value
+            row[column] = read_float_value(team1_latest, source_column)
             continue
 
         if column.startswith("team2_"):
-            source_row = team2_latest
             source_column = column.removeprefix("team2_")
-            default_value = 0.0
-            value = source_row.get(source_column, default_value)
-            row[column] = float(value) if pd.notna(value) else default_value
+            row[column] = read_float_value(team2_latest, source_column)
             continue
 
         if column.startswith("delta_"):
             metric = column.removeprefix("delta_")
-            left_value = float(team1_latest.get(metric, 0.0))
-            right_value = float(team2_latest.get(metric, 0.0))
+            left_value = read_float_value(team1_latest, metric)
+            right_value = read_float_value(team2_latest, metric)
             row[column] = left_value - right_value
             continue
 
@@ -635,6 +653,50 @@ def build_prediction_feature_row(
         row["team2_won_toss_and_fielded"] = float(toss_winner_is_team2)
 
     return pd.DataFrame([[row[column] for column in feature_columns]], columns=feature_columns)
+
+
+def resolve_match_inputs(
+    team_lookup: dict[str, str],
+    team1_input: str,
+    team2_input: str,
+    toss_input: str,
+) -> tuple[str, str, str]:
+    """Resolve teams and validate the matchup."""
+
+    team1_name = resolve_team_name(team1_input, team_lookup)
+    team2_name = resolve_team_name(team2_input, team_lookup)
+    toss_winner = resolve_team_name(toss_input, team_lookup)
+
+    if team1_name == team2_name:
+        raise ValueError("Please choose two different teams.")
+    if toss_winner not in {team1_name, team2_name}:
+        raise ValueError("Toss winner must be one of the selected teams.")
+
+    return team1_name, team2_name, toss_winner
+
+
+def build_scaled_prediction_row(
+    payload: dict[str, Any],
+    team_history: pd.DataFrame,
+    match_dataset: pd.DataFrame,
+    team1_name: str,
+    team2_name: str,
+    toss_winner: str,
+) -> list[float]:
+    """Prepare one scaled row for prediction."""
+
+    feature_frame = build_prediction_feature_row(
+        team_history=team_history,
+        match_dataset=match_dataset,
+        team1_name=team1_name,
+        team2_name=team2_name,
+        toss_winner=toss_winner,
+        feature_columns=payload["feature_columns"],
+    )
+    scaler_mean = pd.Series(payload["scaler_mean"], dtype=float)
+    scaler_std = pd.Series(payload["scaler_std"], dtype=float)
+    scaled_features = transform_with_scaler(feature_frame, scaler_mean, scaler_std)
+    return scaled_features.iloc[0].tolist()
 
 
 def clamp(value: float, lower: float, upper: float) -> float:
@@ -736,42 +798,34 @@ def derive_confidence(probability: float) -> str:
 def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
     """Produce the backend response payload for a match simulation request."""
 
-    # load the saved model and processed data
+    # load model and data
     payload = load_saved_model()
     team_history = load_team_history()
     match_dataset = load_match_dataset()
     team_lookup = build_team_lookup(team_history)
 
-    # clean the selected team names
-    team1_name = resolve_team_name(request.team1, team_lookup)
-    team2_name = resolve_team_name(request.team2, team_lookup)
-    toss_winner = resolve_team_name(request.toss_winner, team_lookup)
+    # clean input
+    team1_name, team2_name, toss_winner = resolve_match_inputs(
+        team_lookup=team_lookup,
+        team1_input=request.team1,
+        team2_input=request.team2,
+        toss_input=request.toss_winner,
+    )
 
-    if team1_name == team2_name:
-        raise ValueError("Please choose two different teams.")
-    if toss_winner not in {team1_name, team2_name}:
-        raise ValueError("Toss winner must be one of the selected teams.")
-
-    # prepare input for model
-    feature_frame = build_prediction_feature_row(
+    # prepare input for model and run prediction
+    scaled_row = build_scaled_prediction_row(
+        payload=payload,
         team_history=team_history,
         match_dataset=match_dataset,
         team1_name=team1_name,
         team2_name=team2_name,
         toss_winner=toss_winner,
-        feature_columns=payload["feature_columns"],
     )
-
-    scaler_mean = pd.Series(payload["scaler_mean"], dtype=float)
-    scaler_std = pd.Series(payload["scaler_std"], dtype=float)
-    scaled_features = transform_with_scaler(feature_frame, scaler_mean, scaler_std)
-
-    # run prediction
-    probability_team1 = predict_probability_from_payload(payload, scaled_features.iloc[0].tolist())
+    probability_team1 = predict_probability_from_payload(payload, scaled_row)
     probability_team2 = 1.0 - probability_team1
     predicted_winner = team1_name if probability_team1 >= 0.5 else team2_name
 
-    # load the latest form rows for score projection
+    # load the latest rows for score projection
     team1_latest = latest_team_row(team_history, team1_name)
     team2_latest = latest_team_row(team_history, team2_name)
     venue_reference = latest_matchup_row(match_dataset, team1_name, team2_name)
@@ -878,34 +932,25 @@ def interactive_predict() -> None:
     team2_input = input("Enter team 2: ").strip()
     team1_name = resolve_team_name(team1_input, team_lookup)
     team2_name = resolve_team_name(team2_input, team_lookup)
-
-    if team1_name == team2_name:
-        raise ValueError("Please choose two different teams.")
-
     toss_input = input(f"Enter toss winner ({team1_name}/{team2_name}): ").strip()
-    toss_winner = resolve_team_name(toss_input or team1_name, team_lookup)
-    if toss_winner not in {team1_name, team2_name}:
-        raise ValueError("Toss winner must be one of the selected teams.")
 
-    # prepare input for model
-    feature_frame = build_prediction_feature_row(
+    team1_name, team2_name, toss_winner = resolve_match_inputs(
+        team_lookup=team_lookup,
+        team1_input=team1_input,
+        team2_input=team2_input,
+        toss_input=toss_input or team1_input,
+    )
+
+    # prepare input for model and run prediction
+    scaled_row = build_scaled_prediction_row(
+        payload=payload,
         team_history=team_history,
         match_dataset=match_dataset,
         team1_name=team1_name,
         team2_name=team2_name,
         toss_winner=toss_winner,
-        feature_columns=payload["feature_columns"],
     )
-
-    scaler_mean = pd.Series(payload["scaler_mean"], dtype=float)
-    scaler_std = pd.Series(payload["scaler_std"], dtype=float)
-    scaled_features = transform_with_scaler(feature_frame, scaler_mean, scaler_std)
-
-    # run prediction
-    probability_team1 = predict_probability_from_payload(
-        payload,
-        scaled_features.iloc[0].tolist(),
-    )
+    probability_team1 = predict_probability_from_payload(payload, scaled_row)
     probability_team2 = 1.0 - probability_team1
     predicted_winner = team1_name if probability_team1 >= 0.5 else team2_name
 
