@@ -818,6 +818,58 @@ def estimate_team_score(
     return score, wickets
 
 
+def estimate_match_scores(
+    request: PredictionRequest,
+    team_history: pd.DataFrame,
+    match_dataset: pd.DataFrame,
+    team1_name: str,
+    team2_name: str,
+    toss_winner: str,
+) -> tuple[int, int, int, int, bool, bool]:
+    """Estimate both team scorecards for one match."""
+
+    team1_latest = latest_team_row(team_history, team1_name)
+    team2_latest = latest_team_row(team_history, team2_name)
+    venue_reference = latest_matchup_row(match_dataset, team1_name, team2_name)
+    team1_is_chasing = toss_winner == team1_name
+    team2_is_chasing = toss_winner == team2_name
+
+    if team1_is_chasing:
+        team2_score, team2_wickets = estimate_team_score(
+            batting_row=team2_latest,
+            bowling_row=team1_latest,
+            venue_reference=venue_reference,
+            batting_key_player=request.key_player_team2,
+            is_chasing=False,
+        )
+        team1_score, team1_wickets = estimate_team_score(
+            batting_row=team1_latest,
+            bowling_row=team2_latest,
+            venue_reference=venue_reference,
+            batting_key_player=request.key_player_team1,
+            is_chasing=True,
+            chase_target=team2_score + 1,
+        )
+    else:
+        team1_score, team1_wickets = estimate_team_score(
+            batting_row=team1_latest,
+            bowling_row=team2_latest,
+            venue_reference=venue_reference,
+            batting_key_player=request.key_player_team1,
+            is_chasing=False,
+        )
+        team2_score, team2_wickets = estimate_team_score(
+            batting_row=team2_latest,
+            bowling_row=team1_latest,
+            venue_reference=venue_reference,
+            batting_key_player=request.key_player_team2,
+            is_chasing=True,
+            chase_target=team1_score + 1,
+        )
+
+    return team1_score, team1_wickets, team2_score, team2_wickets, team1_is_chasing, team2_is_chasing
+
+
 def derive_confidence(probability: float) -> str:
     """Map raw win probability into a simple confidence band."""
 
@@ -853,46 +905,16 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
         toss_winner=toss_winner,
     )
 
-    # load the latest rows for score projection
-    team1_latest = latest_team_row(team_history, team1_name)
-    team2_latest = latest_team_row(team_history, team2_name)
-    venue_reference = latest_matchup_row(match_dataset, team1_name, team2_name)
-    team1_is_chasing = toss_winner == team1_name
-    team2_is_chasing = toss_winner == team2_name
-
-    # estimate both innings
-    if team1_is_chasing:
-        team2_score, team2_wickets = estimate_team_score(
-            batting_row=team2_latest,
-            bowling_row=team1_latest,
-            venue_reference=venue_reference,
-            batting_key_player=request.key_player_team2,
-            is_chasing=False,
+    team1_score, team1_wickets, team2_score, team2_wickets, team1_is_chasing, team2_is_chasing = (
+        estimate_match_scores(
+            request=request,
+            team_history=team_history,
+            match_dataset=match_dataset,
+            team1_name=team1_name,
+            team2_name=team2_name,
+            toss_winner=toss_winner,
         )
-        team1_score, team1_wickets = estimate_team_score(
-            batting_row=team1_latest,
-            bowling_row=team2_latest,
-            venue_reference=venue_reference,
-            batting_key_player=request.key_player_team1,
-            is_chasing=True,
-            chase_target=team2_score + 1,
-        )
-    else:
-        team1_score, team1_wickets = estimate_team_score(
-            batting_row=team1_latest,
-            bowling_row=team2_latest,
-            venue_reference=venue_reference,
-            batting_key_player=request.key_player_team1,
-            is_chasing=False,
-        )
-        team2_score, team2_wickets = estimate_team_score(
-            batting_row=team2_latest,
-            bowling_row=team1_latest,
-            venue_reference=venue_reference,
-            batting_key_player=request.key_player_team2,
-            is_chasing=True,
-            chase_target=team1_score + 1,
-        )
+    )
 
     # adjust the final margin so the scoreline matches the predicted winner
     win_gap = int(round(clamp(abs(probability_team1 - 0.5) * 60.0, 4.0, 18.0)))
