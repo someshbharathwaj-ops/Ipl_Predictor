@@ -42,6 +42,12 @@ All backend runtime endpoints are standardized under `/api`:
 
 The React frontend calls these endpoints through one consistent base URL. In development, Vite proxies `/api` to the local FastAPI server. In production, Vercel serves the frontend and Python API functions from the same repo root.
 
+### Endpoint Purpose
+
+- `/api/health`: check if the backend is running
+- `/api/metadata`: return team names and key-player options
+- `/api/predict`: return winner, confidence, probabilities, and score prediction
+
 ## Quick Start
 
 Run every command from the repository root:
