@@ -709,6 +709,30 @@ def build_scaled_prediction_row(
     return scaled_features.iloc[0].tolist()
 
 
+def predict_match_probabilities(
+    payload: dict[str, Any],
+    team_history: pd.DataFrame,
+    match_dataset: pd.DataFrame,
+    team1_name: str,
+    team2_name: str,
+    toss_winner: str,
+) -> tuple[float, float, str]:
+    """Run model prediction for one matchup."""
+
+    scaled_row = build_scaled_prediction_row(
+        payload=payload,
+        team_history=team_history,
+        match_dataset=match_dataset,
+        team1_name=team1_name,
+        team2_name=team2_name,
+        toss_winner=toss_winner,
+    )
+    probability_team1 = predict_probability_from_payload(payload, scaled_row)
+    probability_team2 = 1.0 - probability_team1
+    predicted_winner = team1_name if probability_team1 >= 0.5 else team2_name
+    return probability_team1, probability_team2, predicted_winner
+
+
 def clamp(value: float, lower: float, upper: float) -> float:
     """Clamp a numeric value into a closed interval."""
 
@@ -820,7 +844,7 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
     )
 
     # prepare input for model and run prediction
-    scaled_row = build_scaled_prediction_row(
+    probability_team1, probability_team2, predicted_winner = predict_match_probabilities(
         payload=payload,
         team_history=team_history,
         match_dataset=match_dataset,
@@ -828,9 +852,6 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
         team2_name=team2_name,
         toss_winner=toss_winner,
     )
-    probability_team1 = predict_probability_from_payload(payload, scaled_row)
-    probability_team2 = 1.0 - probability_team1
-    predicted_winner = team1_name if probability_team1 >= 0.5 else team2_name
 
     # load the latest rows for score projection
     team1_latest = latest_team_row(team_history, team1_name)
@@ -946,7 +967,7 @@ def interactive_predict() -> None:
     )
 
     # prepare input for model and run prediction
-    scaled_row = build_scaled_prediction_row(
+    probability_team1, probability_team2, predicted_winner = predict_match_probabilities(
         payload=payload,
         team_history=team_history,
         match_dataset=match_dataset,
@@ -954,9 +975,6 @@ def interactive_predict() -> None:
         team2_name=team2_name,
         toss_winner=toss_winner,
     )
-    probability_team1 = predict_probability_from_payload(payload, scaled_row)
-    probability_team2 = 1.0 - probability_team1
-    predicted_winner = team1_name if probability_team1 >= 0.5 else team2_name
 
     print()
     print(f"Toss winner: {toss_winner}")
