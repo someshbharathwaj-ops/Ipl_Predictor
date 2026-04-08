@@ -42,7 +42,7 @@ All backend runtime endpoints are standardized under `/api`:
 
 The React frontend calls these endpoints through one consistent base URL. In development, Vite proxies `/api` to the local FastAPI server. In production, Vercel serves the frontend and Python API functions from the same repo root.
 
-## Local Development
+## Quick Start
 
 Run every command from the repository root:
 
@@ -50,20 +50,20 @@ Run every command from the repository root:
 cd IPL_Predictor
 ```
 
-Install backend dependencies:
+### 1. Install backend dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Install frontend dependencies:
+### 2. Install frontend dependencies
 
 ```bash
 cd frontend
 npm install
 ```
 
-Run the backend:
+### 3. Start the backend
 
 ```bash
 python -m uvicorn backend.web.app:app --host 127.0.0.1 --port 8000
@@ -74,14 +74,14 @@ Important:
 - start the backend from the repository root, not from `backend/`
 - if you run the command inside `backend/`, Python will fail with `ModuleNotFoundError: No module named 'backend'`
 
-Run the frontend:
+### 4. Start the frontend
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-Open:
+### 5. Open the app
 
 ```text
 http://127.0.0.1:5173
