@@ -150,6 +150,12 @@ Backend smoke tests:
 python -m pytest backend/tests/test_api_smoke.py
 ```
 
+Manual health check:
+
+```bash
+curl http://127.0.0.1:8000/api/health
+```
+
 ## Data And Model Notes
 
 - `backend/Processed/team_history_features.csv`
