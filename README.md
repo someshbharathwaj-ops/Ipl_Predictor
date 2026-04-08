@@ -24,6 +24,14 @@ The app predicts:
 - `backend/main.py`: model loading, artifact bootstrapping, and prediction logic
 - `backend/src/`: dataset pipeline and feature engineering code
 
+## How It Works
+
+1. The frontend sends requests to `/api`.
+2. FastAPI or Vercel routes those requests to shared handlers.
+3. The backend loads processed match data and the saved model.
+4. The model predicts the winner and probability.
+5. The backend also estimates a realistic scoreboard for both teams.
+
 ## API Design
 
 All backend runtime endpoints are standardized under `/api`:
