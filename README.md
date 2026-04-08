@@ -104,11 +104,17 @@ http://127.0.0.1:8000/api/health
 Frontend:
 
 - `VITE_API_BASE_URL`
-  - optional
-  - defaults to `/api`
-  - set this only if the frontend must call a different backend origin
+- optional
+- defaults to `/api`
+- set this only if the frontend must call a different backend origin
 
 See [frontend/.env.example](/c:/Users/SOMESH%20BHARATHWAJ/Documents/GitHub/IPL_Predictor/frontend/.env.example).
+
+## Common Problems
+
+- `Request failed.` in the frontend usually means the backend is not running on `127.0.0.1:8000`.
+- `ModuleNotFoundError: No module named 'backend'` means you started Uvicorn from the wrong folder.
+- If Vite shows `ECONNREFUSED 127.0.0.1:8000`, start the backend first.
 
 ## Deployment
 
