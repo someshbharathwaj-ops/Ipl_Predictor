@@ -218,6 +218,16 @@ def load_key_players_by_team(path: Path = IPL_SOURCE_PATH) -> dict[str, list[str
     return KEY_PLAYER_SHORTLIST.copy()
 
 
+def load_prediction_context() -> tuple[dict[str, Any], pd.DataFrame, pd.DataFrame, dict[str, str]]:
+    """Load the model, processed data, and team lookup used for prediction."""
+
+    payload = load_saved_model()
+    team_history = load_team_history()
+    match_dataset = load_match_dataset()
+    team_lookup = build_team_lookup(team_history)
+    return payload, team_history, match_dataset, team_lookup
+
+
 def chronological_split(
     features: pd.DataFrame,
     target: pd.Series,
@@ -799,10 +809,7 @@ def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
     """Produce the backend response payload for a match simulation request."""
 
     # load model and data
-    payload = load_saved_model()
-    team_history = load_team_history()
-    match_dataset = load_match_dataset()
-    team_lookup = build_team_lookup(team_history)
+    payload, team_history, match_dataset, team_lookup = load_prediction_context()
 
     # clean input
     team1_name, team2_name, toss_winner = resolve_match_inputs(
@@ -918,10 +925,7 @@ def interactive_predict() -> None:
     """Ask the user for two teams and print the predicted winner."""
 
     # load model and match data
-    payload = load_saved_model()
-    team_history = load_team_history()
-    match_dataset = load_match_dataset()
-    team_lookup = build_team_lookup(team_history)
+    payload, team_history, match_dataset, team_lookup = load_prediction_context()
     available_teams = sorted(team_lookup.values())
 
     print("Available teams:")
