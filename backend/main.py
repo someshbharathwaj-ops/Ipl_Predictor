@@ -881,6 +881,26 @@ def derive_confidence(probability: float) -> str:
     return "low"
 
 
+def print_prediction_summary(
+    team1_name: str,
+    team2_name: str,
+    toss_winner: str,
+    predicted_winner: str,
+    probability_team1: float,
+    probability_team2: float,
+) -> None:
+    """Print a simple CLI prediction summary."""
+
+    print_prediction_summary(
+        team1_name=team1_name,
+        team2_name=team2_name,
+        toss_winner=toss_winner,
+        predicted_winner=predicted_winner,
+        probability_team1=probability_team1,
+        probability_team2=probability_team2,
+    )
+
+
 def predict_match_outcome(request: PredictionRequest) -> dict[str, Any]:
     """Produce the backend response payload for a match simulation request."""
 
