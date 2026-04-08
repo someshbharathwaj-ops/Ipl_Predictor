@@ -1,6 +1,16 @@
 # IPL Predictor
 
-This repository packages the IPL predictor as one React frontend and one unified prediction API. The frontend lives in `frontend/`, and every runtime backend endpoint is standardized under `/api`.
+A simple IPL match prediction project with:
+
+- a React frontend in `frontend/`
+- a FastAPI backend in `backend/web/`
+- shared API handlers used locally and on Vercel
+
+The app predicts:
+
+- the likely match winner
+- win probability for both teams
+- projected scorecards for both innings
 
 ## Structure
 
