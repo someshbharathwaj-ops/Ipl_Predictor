@@ -163,3 +163,10 @@ curl http://127.0.0.1:8000/api/health
 - `backend/models/model.pkl`
 
 These runtime artifacts are included because the deployed API needs them to answer `/api/metadata` and `/api/predict` without rebuilding the full dataset at request time.
+
+## Summary
+
+- frontend: React + Vite
+- backend: FastAPI
+- model: saved micrograd network weights
+- deployment target: Vercel
